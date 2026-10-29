@@ -401,12 +401,29 @@ export class LiveTimingService {
 
     try {
       const base = env.EMPEROR_WEB_URL.replace(/\/+$/, '');
+      const userAgent =
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
       const res = await fetch(`${base}/live-timing`, {
+        headers: {
+          'User-Agent': userAgent,
+        },
         signal: AbortSignal.timeout(8000),
       });
-      const setCookies =
-        typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
-      const rawCookie = setCookies[0] ? setCookies[0].split(';')[0] : '';
+
+      let rawCookie = '';
+      if (typeof res.headers.getSetCookie === 'function') {
+        const cookies = res.headers.getSetCookie();
+        if (cookies && cookies[0]) {
+          rawCookie = cookies[0].split(';')[0];
+        }
+      }
+      if (!rawCookie) {
+        const headerCookie = res.headers.get('set-cookie');
+        if (headerCookie) {
+          rawCookie = headerCookie.split(';')[0];
+        }
+      }
 
       const wsUrl = base.replace(/^http/, 'ws') + '/api/race-control';
 
@@ -419,6 +436,7 @@ export class LiveTimingService {
         headers: {
           Cookie: rawCookie,
           Origin: base,
+          'User-Agent': userAgent,
         },
       });
 
@@ -426,7 +444,7 @@ export class LiveTimingService {
 
       ws.onopen = () => {
         this.state.connectedToWs = true;
-        console.log('🌐 Conectado al WebSocket de Live Timing & Mapa de Emperor');
+        console.log('🌐 Conectado exitosamente al WebSocket de Live Timing & Mapa de Emperor');
         this.emitUpdate();
       };
 
@@ -439,15 +457,18 @@ export class LiveTimingService {
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (ev: { code?: number; reason?: string }) => {
+        console.warn(`⚠️ WebSocket cerrado (código: ${ev?.code}, razón: ${ev?.reason || 'desconocida'})`);
         this.state.connectedToWs = false;
         this.scheduleReconnect();
       };
 
-      ws.onerror = () => {
+      ws.onerror = (err) => {
+        console.error('❌ Error en WebSocket de Emperor:', err);
         this.state.connectedToWs = false;
       };
-    } catch {
+    } catch (err) {
+      console.error('❌ Error iniciando WebSocket con Emperor:', err);
       this.state.connectedToWs = false;
       this.scheduleReconnect();
     }
