@@ -1,3 +1,4 @@
+import WebSocket from 'ws';
 import { env } from '../config/env.js';
 import { emperorService } from './emperor.service.js';
 
@@ -427,12 +428,7 @@ export class LiveTimingService {
 
       const wsUrl = base.replace(/^http/, 'ws') + '/api/race-control';
 
-      const WsConstructor = WebSocket as unknown as new (
-        url: string,
-        options?: unknown
-      ) => WebSocket;
-
-      const ws = new WsConstructor(wsUrl, {
+      const ws = new WebSocket(wsUrl, {
         headers: {
           Cookie: rawCookie,
           Origin: base,
@@ -448,7 +444,7 @@ export class LiveTimingService {
         this.emitUpdate();
       };
 
-      ws.onmessage = (event: MessageEvent) => {
+      ws.onmessage = (event: { data: unknown }) => {
         try {
           const payload = JSON.parse(String(event.data));
           this.handleWsEvent(payload);
