@@ -1,0 +1,11 @@
+services:
+  live-timing:
+    build: .
+    container_name: lsa-live-timing
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data

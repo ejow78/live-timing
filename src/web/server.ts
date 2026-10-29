@@ -32,7 +32,11 @@ export function startWebServer(discordClient: any = null): http.Server {
       // 0. Servir Logo LSA Oficial
       if (req.method === 'GET' && (pathname === '/logo.png' || pathname === '/Logo_LSA.png' || pathname === '/favicon.ico')) {
         try {
-          const logoPath = path.join(__dirname, 'logo.png');
+          let logoPath = path.join(__dirname, 'logo.png');
+          if (!fs.existsSync(logoPath)) {
+            const fallback = path.resolve(process.cwd(), 'src/web/logo.png');
+            if (fs.existsSync(fallback)) logoPath = fallback;
+          }
           const logoBuf = await fs.promises.readFile(logoPath);
           res.writeHead(200, {
             'Content-Type': 'image/png',
