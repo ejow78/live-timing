@@ -52,17 +52,17 @@ export function startWebServer(discordClient: any = null): http.Server {
       }
 
       // 1. Página Principal del Portal Web
-      if (req.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
+      if ((req.method === 'GET' || req.method === 'HEAD') && (pathname === '/' || pathname === '/index.html')) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(DASHBOARD_HTML);
+        res.end(req.method === 'HEAD' ? '' : DASHBOARD_HTML);
         return;
       }
 
       // 2. Estado y Mapa en Tiempo Real (snapshot HTTP)
-      if (req.method === 'GET' && pathname === '/api/live') {
+      if ((req.method === 'GET' || req.method === 'HEAD') && pathname === '/api/live') {
         const state = liveTimingService.getState();
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify(state));
+        res.end(req.method === 'HEAD' ? '' : JSON.stringify(state));
         return;
       }
 
