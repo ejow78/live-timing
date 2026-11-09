@@ -4,15 +4,21 @@ import { z } from 'zod';
 dotenv.config();
 
 const envSchema = z.object({
-  EMPEROR_IP_OR_DOMAIN: z.string().min(1).default('216.238.100.32'),
-  EMPEROR_HTTP_PORT: z.coerce.number().int().positive().default(9649),
+  EMPEROR_IP_OR_DOMAIN: z.string().min(1).default('24.152.39.252'),
+  EMPEROR_HTTP_PORT: z.coerce.number().int().positive().default(8520),
   AC_JOIN_HTTP_PORT: z.coerce.number().int().positive().optional(),
+  AC_JOIN_URL: z.string().url().optional(),
   AC_SERVER_PASSWORD: z.string().optional().default('LaTaM2026'),
   EMPEROR_WEB_URL: z
     .string()
     .url()
     .optional()
-    .default('https://aclsa.emperorservers.com'),
+    .default('https://br.assettohosting.com:10520'),
+  LIVE_TIMING_WEB_URL: z
+    .string()
+    .url()
+    .optional()
+    .default('https://br.assettohosting.com:10520/live-timing'),
   WEB_PORT: z.coerce.number().int().positive().default(3000),
   ADMIN_PASSWORD: z.string().min(1).default('LaTaM2026'),
   MOCK_MODE: z

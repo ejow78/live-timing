@@ -82,6 +82,7 @@ export interface SessionResultSummary {
   fileName: string;
   webUrl: string;
   trackName: string;
+  trackConfig?: string;
   trackPreviewUrl: string;
   trackLayoutUrl?: string;
   sessionType: string;
@@ -165,6 +166,7 @@ interface RawEmperorLiveTimings {
   track_config?: string;
   SessionType?: number | string;
   session?: number | string;
+  sessiontypes?: number[];
   TimeLeft?: number;
   timeleft?: number;
   MaxClients?: number;
@@ -279,16 +281,30 @@ export class EmperorService {
   private mockCycleIndex = 0;
 
   public getContentManagerProtocolLink(): string {
+    if (env.AC_JOIN_URL) {
+      try {
+        const parsed = new URL(env.AC_JOIN_URL);
+        if (parsed.pathname.startsWith('/s/q:')) {
+          const path = parsed.pathname.slice('/s/q:'.length);
+          return `acmanager://${path}${parsed.search}`;
+        }
+        return `acmanager://race/online/join${parsed.search}`;
+      } catch {
+        return env.AC_JOIN_URL.replace(/^https?:\/\/[^/]+\/s\/q:/, 'acmanager://');
+      }
+    }
     return `acmanager://race/online/join?ip=${env.EMPEROR_IP_OR_DOMAIN}&httpPort=${env.joinHttpPort}`;
   }
 
   public getContentManagerJoinButtonUrl(): string {
-    return `https://acstuff.ru/s/q:race/online/join?httpPort=${env.joinHttpPort}&ip=${env.EMPEROR_IP_OR_DOMAIN}`;
+    if (env.AC_JOIN_URL) {
+      return env.AC_JOIN_URL;
+    }
+    return `https://acstuff.club/s/q:race/online/join?httpPort=${env.joinHttpPort}&ip=${env.EMPEROR_IP_OR_DOMAIN}`;
   }
 
   public getLiveTimingWebUrl(): string {
-    const base = env.EMPEROR_WEB_URL.replace(/\/+$/, '');
-    return `${base}/live-timing`;
+    return env.LIVE_TIMING_WEB_URL;
   }
 
   public getChampionshipsWebUrl(): string {
@@ -301,8 +317,17 @@ export class EmperorService {
     return `${base}/results`;
   }
 
-  public getTrackPreviewImageUrl(rawTrack: string, _rawConfig?: string): string {
+  public getTrackPreviewImageUrl(rawTrack: string, rawConfig?: string): string {
     const base = env.EMPEROR_WEB_URL.replace(/\/+$/, '');
+    if (rawConfig && rawConfig.trim() !== '') {
+      return `${base}/content/tracks/${rawTrack}/ui/${rawConfig}/preview.png`;
+    }
+    if (rawTrack.includes('-')) {
+      const idx = rawTrack.lastIndexOf('-');
+      const trackBase = rawTrack.slice(0, idx);
+      const configSub = rawTrack.slice(idx + 1);
+      return `${base}/content/tracks/${trackBase}/ui/${configSub}/preview.png`;
+    }
     return `${base}/content/tracks/${rawTrack}/ui/preview.png`;
   }
 
@@ -310,6 +335,12 @@ export class EmperorService {
     const base = env.EMPEROR_WEB_URL.replace(/\/+$/, '');
     if (rawConfig && rawConfig.trim() !== '') {
       return `${base}/content/tracks/${rawTrack}/${rawConfig}/map.png`;
+    }
+    if (rawTrack.includes('-')) {
+      const idx = rawTrack.lastIndexOf('-');
+      const trackBase = rawTrack.slice(0, idx);
+      const configSub = rawTrack.slice(idx + 1);
+      return `${base}/content/tracks/${trackBase}/${configSub}/map.png`;
     }
     return `${base}/content/tracks/${rawTrack}/map.png`;
   }
@@ -630,8 +661,9 @@ export class EmperorService {
 
         return {
           fileName,
-          webUrl: `${base}/results/${pageSlug}`,
+          webUrl: 'https://live.latamsimracing.com/',
           trackName: this.formatIdentifier(rawTrack),
+          trackConfig: rawConfig,
           trackPreviewUrl: this.getTrackPreviewImageUrl(rawTrack, rawConfig),
           trackLayoutUrl: this.getTrackLayoutImageUrl(rawTrack, rawConfig),
           sessionType: this.parseSessionType(data.Type),
@@ -1010,7 +1042,50 @@ export class EmperorService {
           continue;
         }
 
-        return (await response.json()) as RawEmperorLiveTimings;
+        const data = (await response.json()) as RawEmperorLiveTimings;
+        if (!data) continue;
+
+        // Si es servidor nativo (/INFO) o no tiene detalles de coches conectados, consultar /ENTRY
+        if (url.endsWith('/INFO') || (!data.Cars && !data.ConnectedDrivers && !data.players)) {
+          try {
+            const entryResp = await fetch(`${baseUrl}/ENTRY`, {
+              signal: AbortSignal.timeout(5000),
+            });
+            if (entryResp.ok) {
+              const html = await entryResp.text();
+
+              const sessionMatch = html.match(/Session:\s*([A-Za-z]+)\s*(?:\[([^\]]+)\])?/i);
+              if (sessionMatch && sessionMatch[1]) {
+                (data as any).SessionName = sessionMatch[1];
+              }
+
+              const trRegex =
+                /<tr><td>(\d+)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>(\d+)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td>/g;
+              let match: RegExpExecArray | null;
+              const connectedCars: any[] = [];
+              while ((match = trRegex.exec(html)) !== null) {
+                const [, , driver, car, , ping, , , best] = match;
+                const cleanDriver = driver ? driver.trim() : '';
+                const cleanPing = ping ? ping.trim().toUpperCase() : '';
+                if (cleanDriver !== '' && cleanPing !== 'DC' && cleanPing !== '0') {
+                  connectedCars.push({
+                    DriverName: cleanDriver,
+                    CarModel: car ? car.trim() : '',
+                    IsConnected: true,
+                    BestLapStr: best && best.trim() !== '--:--:---' ? best.trim() : undefined,
+                  });
+                }
+              }
+              if (connectedCars.length > 0) {
+                data.Cars = connectedCars as any;
+              }
+            }
+          } catch {
+            // Ignorar error de /ENTRY y continuar con los datos de /INFO
+          }
+        }
+
+        return data;
       } catch {
         continue;
       }
@@ -1031,7 +1106,15 @@ export class EmperorService {
       drivers.length > 0 ? drivers.length : Number(raw.Clients ?? raw.clients ?? 0);
     const maxClients = Number(raw.MaxClients ?? raw.maxclients ?? 24);
 
-    const sessionType = this.parseSessionType(raw.SessionType ?? raw.session);
+    let sessionType: ServerLiveStatus['sessionType'];
+    if ((raw as any).SessionName) {
+      sessionType = this.parseSessionType((raw as any).SessionName);
+    } else if (raw.sessiontypes && Array.isArray(raw.sessiontypes) && raw.session !== undefined) {
+      const typeNum = raw.sessiontypes[Number(raw.session)];
+      sessionType = this.parseSessionType(typeNum ?? raw.session);
+    } else {
+      sessionType = this.parseSessionType(raw.SessionType ?? raw.session);
+    }
     const timeLeftFormatted = this.formatTimeLeft(raw.TimeLeft ?? raw.timeleft);
 
     return {
@@ -1106,7 +1189,7 @@ export class EmperorService {
         bestLap:
           entry.BestLap && entry.BestLap > 0
             ? this.formatLapTime(entry.BestLap)
-            : undefined,
+            : (entry as any).BestLapStr || undefined,
       });
     }
 
