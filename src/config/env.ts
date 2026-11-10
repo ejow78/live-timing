@@ -18,7 +18,7 @@ const envSchema = z.object({
     .string()
     .url()
     .optional()
-    .default('https://br.assettohosting.com:10520/live-timing'),
+    .default('https://live.latamsimracing.com'),
   WEB_PORT: z.coerce.number().int().positive().default(3000),
   ADMIN_PASSWORD: z.string().min(1).default('LaTaM2026'),
   MOCK_MODE: z
