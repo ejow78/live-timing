@@ -27,6 +27,9 @@ const envSchema = z.object({
     .default('false')
     .transform((val) => val.toLowerCase() === 'true' || val === '1'),
   // Variables opcionales (no obligatorias para el funcionamiento de Live Timing)
+  SUPABASE_URL: z.string().optional().default('https://znkjcmjbaiapokwrlnsq.supabase.co'),
+  SUPABASE_ANON_KEY: z.string().optional().default('sb_publishable_f5LKJWJnc_eymLFDSqBNrw_ED12JZ9f'),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   DISCORD_TOKEN: z.string().optional(),
   CLIENT_ID: z.string().optional(),
   GUILD_ID: z.string().optional(),
