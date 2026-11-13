@@ -399,6 +399,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         <div class="space-y-2.5">
           <div class="flex flex-wrap items-center gap-2.5">
             <span class="kick">TELEMETRÍA OFICIAL</span>
+            <div id="live-championship-pill" class="hidden items-center gap-1.5 px-3 py-0.5 rounded text-xs font-display italic font-bold uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/40">
+              <i data-lucide="trophy" class="w-3.5 h-3.5 text-lsa-gold"></i>
+              <span id="live-championship-name">CAMPEONATO OFICIAL</span>
+            </div>
             <span id="live-session-badge" class="px-3 py-0.5 rounded-full text-xs font-display italic font-bold uppercase tracking-wider bg-lsa-cyan/15 text-lsa-cyan border border-lsa-cyan/40">
               PRÁCTICA
             </span>
@@ -503,118 +507,121 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- TABS: CHAT DEL JUEGO / LOGS DEL SERVIDOR -->
+        <!-- TABS: LOGS DEL SERVIDOR / CHAT DEL JUEGO -->
         <div class="lsa-panel cut p-4 flex flex-col">
           <div class="flex items-center justify-between border-b border-lsa-wire pb-3 mb-3">
             <div class="flex items-center gap-2">
-              <button id="tab-btn-chat" onclick="switchLeftTab('chat')" class="px-3 py-1 text-xs font-display italic font-bold uppercase tracking-wider bg-lsa-cyan/15 text-lsa-cyan border border-lsa-cyan/40 flex items-center gap-1.5">
-                <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
-                CHAT EN PISTA
-              </button>
-              <button id="tab-btn-logs" onclick="switchLeftTab('logs')" class="px-3 py-1 text-xs font-display italic font-bold uppercase tracking-wider text-lsa-mute hover:text-white border border-transparent flex items-center gap-1.5">
+              <button id="tab-btn-logs" onclick="switchLeftTab('logs')" class="px-3 py-1 text-xs font-display italic font-bold uppercase tracking-wider bg-lsa-gold/15 text-lsa-gold border border-lsa-gold/40 flex items-center gap-1.5">
                 <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
                 EVENTOS / SANCIONES
               </button>
+              <button id="tab-btn-chat" onclick="switchLeftTab('chat')" class="px-3 py-1 text-xs font-display italic font-bold uppercase tracking-wider text-lsa-mute hover:text-white border border-transparent flex items-center gap-1.5">
+                <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                CHAT EN PISTA
+              </button>
             </div>
-            <span id="chat-count-badge" class="text-[11px] font-mono text-lsa-mute">0 msgs</span>
+            <span id="tab-count-badge" class="text-[11px] font-mono text-lsa-mute">0 eventos</span>
           </div>
 
-          <!-- PANE DE CHAT -->
-          <div id="tab-content-chat" class="flex flex-col">
-            <div id="chat-messages-container" class="h-64 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
-              <div class="text-lsa-mute italic py-8 text-center">Esperando mensajes en el chat del juego...</div>
-            </div>
-          </div>
-
-          <!-- PANE DE LOGS -->
-          <div id="tab-content-logs" class="hidden flex flex-col">
+          <!-- PANE DE LOGS (ACTIVO POR DEFECTO) -->
+          <div id="tab-content-logs" class="flex flex-col">
             <div id="server-logs-container" class="h-64 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
               <div class="text-lsa-mute italic py-8 text-center">No hay eventos ni incidentes registrados en esta sesión.</div>
+            </div>
+          </div>
+
+          <!-- PANE DE CHAT (OCULTO POR DEFECTO) -->
+          <div id="tab-content-chat" class="hidden flex flex-col">
+            <div id="chat-messages-container" class="h-64 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
+              <div class="text-lsa-mute italic py-8 text-center">Esperando mensajes en el chat del juego...</div>
             </div>
           </div>
         </div>
 
       </div>
 
-      <!-- COLUMNA DERECHA: CLASIFICACIÓN EN VIVO + TIEMPOS ACUMULADOS -->
+      <!-- COLUMNA DERECHA: TIMING Y CLASIFICACIÓN COMPLETA -->
       <div class="xl:col-span-7 flex flex-col gap-6">
 
-        <!-- 1. TABLA DE CLASIFICACIÓN EN VIVO -->
+        <!-- SELECTOR DE SESIÓN / HISTORIAL -->
+        <div class="lsa-panel cut p-3 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2 overflow-x-auto py-1 max-w-full">
+            <span class="text-xs font-display italic font-bold uppercase text-lsa-mute flex items-center gap-1 shrink-0">
+              <i data-lucide="history" class="w-3.5 h-3.5 text-lsa-cyan"></i>
+              SESIONES:
+            </span>
+            <div id="sessions-pill-bar" class="flex items-center gap-1.5 shrink-0">
+              <button id="pill-live" onclick="switchToSession('live')" class="px-3 py-1 text-xs font-mono font-bold rounded flex items-center gap-1.5 bg-red-500/25 text-red-400 border border-red-500/60 shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-colors">
+                <span class="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span>
+                EN VIVO
+              </button>
+            </div>
+          </div>
+          <span id="timing-view-indicator" class="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 border border-emerald-500/30 shrink-0">
+            TRANSMISIÓN EN DIRECTO
+          </span>
+        </div>
+
+        <!-- TABLA PRINCIPAL DE TIMING & CLASIFICACIÓN (ESTILO ASSETTO HOSTING OFICIAL) -->
         <div class="lsa-panel cut p-5">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-lsa-wire">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-lsa-wire">
             <div>
-              <div class="kick">TABLA DE POSICIONES</div>
-              <h2 class="font-display italic font-bold text-xl sm:text-2xl text-white uppercase flex items-center gap-2">
+              <div class="kick">TIMING & TELEMETRÍA OFICIAL</div>
+              <h2 id="timing-table-title" class="font-display italic font-bold text-xl sm:text-2xl text-white uppercase flex items-center gap-2">
                 <span class="text-lsa-red">›</span> CLASIFICACIÓN <span class="tri-word">EN VIVO</span>
               </h2>
             </div>
-          </div>
 
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="border-b border-lsa-wire text-[11px] font-display font-semibold uppercase tracking-wider text-lsa-mute">
-                  <th class="py-2 px-1.5 text-center whitespace-nowrap">Pos</th>
-                  <th class="py-2 px-2 whitespace-nowrap">Piloto</th>
-                  <th class="py-2 px-2 whitespace-nowrap">Vehículo</th>
-                  <th class="py-2 px-1.5 text-center whitespace-nowrap">Comp</th>
-                  <th class="py-2 px-2 whitespace-nowrap">Mejor Vuelta</th>
-                  <th class="py-2 px-1.5 whitespace-nowrap">Delta</th>
-                  <th class="py-2 px-1.5 whitespace-nowrap">Última</th>
-                  <th class="py-2 px-1.5 text-center whitespace-nowrap">Vtas</th>
-                  <th class="py-2 px-2 whitespace-nowrap">Velocidad</th>
-                  <th class="py-2 px-2 text-center whitespace-nowrap min-w-[90px]">Estado</th>
-                </tr>
-              </thead>
-              <tbody id="live-drivers-tbody" class="divide-y divide-lsa-wire/70 text-sm">
-                <tr>
-                  <td colspan="10" class="py-10 text-center text-lsa-mute font-mono">
-                    No hay pilotos en pista en este momento.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- 2. TIEMPOS ACUMULADOS DE LA SESIÓN -->
-        <div class="lsa-panel cut p-5">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-lsa-wire">
-            <div>
-              <div class="kick">TELEMETRÍA ACUMULADA</div>
-              <h2 class="font-display italic font-bold text-lg sm:text-xl text-white uppercase flex items-center gap-2">
-                <span class="text-lsa-red">›</span> MEJORES TIEMPOS DE LA <span class="tri-word">SESIÓN</span>
-              </h2>
-              <p class="text-xs text-lsa-mute mt-0.5">Ranking de vueltas rápidas de todos los pilotos que han rodado</p>
+            <!-- LEYENDA OFICIAL DE COLORES -->
+            <div class="flex items-center gap-3.5 text-xs text-zinc-300 font-mono">
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#A855F7]"></span>Fastest</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>Personal best</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></span>Cut</span>
             </div>
-            <span id="stored-times-count" class="text-xs font-mono text-lsa-mute bg-lsa-deck2 border border-lsa-wire px-3 py-1">
-              0 tiempos
-            </span>
           </div>
 
+          <!-- TABLA -->
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
                 <tr class="border-b border-lsa-wire text-[11px] font-display font-semibold uppercase tracking-wider text-lsa-mute">
-                  <th class="py-2.5 px-2 text-center">#</th>
-                  <th class="py-2.5 px-2">Piloto</th>
-                  <th class="py-2.5 px-2">Vehículo</th>
-                  <th class="py-2.5 px-2">Compuesto</th>
-                  <th class="py-2.5 px-2">Mejor Tiempo</th>
-                  <th class="py-2.5 px-2">Última Vuelta</th>
-                  <th class="py-2.5 px-2 text-center">Vueltas</th>
-                  <th class="py-2.5 px-2">Vel. Punta</th>
-                  <th class="py-2.5 px-2 text-center">Estado</th>
+                  <th class="py-2.5 px-2 text-center w-12">Pos</th>
+                  <th class="py-2.5 px-2">Piloto / Vehículo</th>
+                  <th class="py-2.5 px-2 text-right">Vtas</th>
+                  <th class="py-2.5 px-2 text-right">Mejor</th>
+                  <th class="py-2.5 px-2 text-right">Gap</th>
+                  <th class="py-2.5 px-2 text-right">Int</th>
+                  <th class="py-2.5 px-2 text-right">Última</th>
+                  <th class="py-2.5 px-1.5 text-right">S1</th>
+                  <th class="py-2.5 px-1.5 text-right">S2</th>
+                  <th class="py-2.5 px-1.5 text-right">S3</th>
+                  <th class="py-2.5 px-2 text-right">Vel.</th>
+                  <th class="py-2.5 px-2 text-center">Hits</th>
                 </tr>
               </thead>
-              <tbody id="stored-times-tbody" class="divide-y divide-lsa-wire/70 text-sm">
+              <tbody id="timing-table-tbody" class="divide-y divide-lsa-wire/70 text-sm">
                 <tr>
-                  <td colspan="9" class="py-6 text-center text-lsa-mute font-mono text-xs">
-                    No hay tiempos registrados en esta sesión aún.
+                  <td colspan="12" class="py-10 text-center text-lsa-mute font-mono">
+                    Cargando clasificación y parciales en vivo...
                   </td>
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- FOOTER: MEJORES SECTORES DE LA SESIÓN -->
+          <div class="mt-4 pt-3 border-t border-lsa-wire/70 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+            <span class="text-zinc-400">
+              BEST SECTORS · the lap's thirds, timed from the cars' progress
+            </span>
+            <div class="flex items-center gap-2">
+              <span class="text-zinc-500 text-[11px]">S1:</span>
+              <span id="best-sector-1" class="px-2.5 py-0.5 rounded bg-[#A855F7] text-white font-bold text-xs">—</span>
+              <span class="text-zinc-500 text-[11px]">S2:</span>
+              <span id="best-sector-2" class="px-2.5 py-0.5 rounded bg-[#A855F7] text-white font-bold text-xs">—</span>
+              <span class="text-zinc-500 text-[11px]">S3:</span>
+              <span id="best-sector-3" class="px-2.5 py-0.5 rounded bg-[#A855F7] text-white font-bold text-xs">—</span>
+            </div>
           </div>
         </div>
 
@@ -692,22 +699,27 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       if (label) label.textContent = Math.round(currentMapZoom * 100) + '%';
     }
 
+    let currentLeftTab = 'logs';
     function switchLeftTab(tab) {
+      currentLeftTab = tab;
       const chatBtn = document.getElementById('tab-btn-chat');
       const logsBtn = document.getElementById('tab-btn-logs');
       const chatContent = document.getElementById('tab-content-chat');
       const logsContent = document.getElementById('tab-content-logs');
+      const badge = document.getElementById('tab-count-badge');
 
       if (tab === 'chat') {
         chatBtn.className = 'px-3 py-1 text-xs font-display italic font-bold uppercase tracking-wider bg-lsa-cyan/15 text-lsa-cyan border border-lsa-cyan/40 flex items-center gap-1.5';
         logsBtn.className = 'px-3 py-1 text-xs font-display italic font-bold uppercase tracking-wider text-lsa-mute hover:text-white border border-transparent flex items-center gap-1.5';
         chatContent.classList.remove('hidden');
         logsContent.classList.add('hidden');
+        if (badge && currentState) badge.textContent = (currentState.chat?.length || 0) + ' msgs';
       } else {
         logsBtn.className = 'px-3 py-1 text-xs font-display italic font-bold uppercase tracking-wider bg-lsa-gold/15 text-lsa-gold border border-lsa-gold/40 flex items-center gap-1.5';
         chatBtn.className = 'px-3 py-1 text-xs font-display italic font-bold uppercase tracking-wider text-lsa-mute hover:text-white border border-transparent flex items-center gap-1.5';
         logsContent.classList.remove('hidden');
         chatContent.classList.add('hidden');
+        if (badge && currentState) badge.textContent = (currentState.serverLogs?.length || 0) + ' eventos';
       }
     }
 
@@ -809,7 +821,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       }
 
       // Fastest Lap in session
-      const validLaps = (state.storedTimes || [])
+      const validLaps = (state.drivers || state.storedTimes || [])
         .filter(t => t.bestLapMs > 0)
         .sort((a, b) => a.bestLapMs - b.bestLapMs);
       const fastestLap = validLaps[0];
@@ -817,17 +829,40 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         ? (fastestLap.bestLapFormatted + ' (' + fastestLap.name + ')')
         : '—';
 
+      // Championship badge
+      const champPill = document.getElementById('live-championship-pill');
+      const champNameEl = document.getElementById('live-championship-name');
+      if (champPill && champNameEl) {
+        if (state.championshipName) {
+          champNameEl.textContent = state.championshipName;
+          champPill.classList.remove('hidden');
+          champPill.classList.add('inline-flex');
+        } else {
+          champPill.classList.add('hidden');
+          champPill.classList.remove('inline-flex');
+        }
+      }
+
+      // Best sectors footer
+      if (state.bestSectors) {
+        const s1El = document.getElementById('best-sector-1');
+        const s2El = document.getElementById('best-sector-2');
+        const s3El = document.getElementById('best-sector-3');
+        if (s1El) s1El.textContent = state.bestSectors[0] || '—';
+        if (s2El) s2El.textContent = state.bestSectors[1] || '—';
+        if (s3El) s3El.textContent = state.bestSectors[2] || '—';
+      }
+
       // Flags
       try { updateFlagBanners(state); } catch (e) { console.error('Error in updateFlagBanners:', e); }
 
       // Render smooth persistent map markers
       try { renderSmoothMapMarkers(state.drivers || [], state.collisions || []); } catch (e) { console.error('Error in renderSmoothMapMarkers:', e); }
 
-      // Render standings table
-      try { renderClassificationTable(state.drivers || [], fastestLap); } catch (e) { console.error('Error in renderClassificationTable:', e); }
-
-      // Render stored times
-      try { renderStoredTimesTable(state.storedTimes || [], fastestLap); } catch (e) { console.error('Error in renderStoredTimesTable:', e); }
+      // Render timing table (only if in live view)
+      if (currentSessionView === 'live') {
+        try { renderTimingTable(state.drivers || state.storedTimes || [], fastestLap, state.bestSectors); } catch (e) { console.error('Error in renderTimingTable:', e); }
+      }
 
       // Render in-game chat and server logs
       try { renderChat(state.chat || []); } catch (e) { console.error('Error in renderChat:', e); }
@@ -957,128 +992,238 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       }
     }
 
-    function renderClassificationTable(drivers, fastestLap) {
-      const tbody = document.getElementById('live-drivers-tbody');
+    let currentSessionView = 'live';
+    let savedSessionsList = [];
+
+    async function fetchSavedSessions() {
+      try {
+        const res = await fetch('/api/sessions');
+        if (!res.ok) return;
+        const list = await res.json();
+        if (Array.isArray(list)) {
+          savedSessionsList = list;
+          renderSessionsPillBar();
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    function renderSessionsPillBar() {
+      const bar = document.getElementById('sessions-pill-bar');
+      if (!bar) return;
+
+      let html = \`
+        <button id="pill-live" onclick="switchToSession('live')" class="px-3 py-1 text-xs font-mono font-bold rounded flex items-center gap-1.5 transition-colors \${currentSessionView === 'live' ? 'bg-red-500/25 text-red-400 border border-red-500/60 shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'bg-lsa-deck text-zinc-400 border border-lsa-wire hover:text-white'}">
+          <span class="w-2 h-2 rounded-full bg-red-400 \${currentSessionView === 'live' ? 'animate-pulse' : ''}"></span>
+          EN VIVO
+        </button>
+      \`;
+
+      savedSessionsList.slice(0, 10).forEach(s => {
+        const isSel = currentSessionView === s.id;
+        html += \`
+          <button onclick="switchToSession('\${escapeHtml(s.id)}')" class="px-2.5 py-1 text-xs font-mono rounded flex items-center gap-1.5 transition-colors \${isSel ? 'bg-lsa-cyan/25 text-lsa-cyan border border-lsa-cyan/60' : 'bg-lsa-deck text-zinc-400 border border-lsa-wire hover:text-white hover:border-zinc-500'}" title="\${escapeHtml(s.trackName)} · \${escapeHtml(s.savedAt)}">
+            <i data-lucide="archive" class="w-3 h-3 text-lsa-gold"></i>
+            \${escapeHtml(s.sessionType)}
+          </button>
+        \`;
+      });
+
+      bar.innerHTML = html;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    async function switchToSession(mode) {
+      currentSessionView = mode;
+      renderSessionsPillBar();
+
+      const viewIndicator = document.getElementById('timing-view-indicator');
+      const tableTitle = document.getElementById('timing-table-title');
+
+      if (mode === 'live') {
+        if (viewIndicator) {
+          viewIndicator.textContent = 'TRANSMISIÓN EN DIRECTO';
+          viewIndicator.className = 'text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 border border-emerald-500/30 shrink-0';
+        }
+        if (tableTitle) {
+          tableTitle.innerHTML = '<span class="text-lsa-red">›</span> CLASIFICACIÓN <span class="tri-word">EN VIVO</span>';
+        }
+        if (currentState) {
+          const fastestLap = (currentState.drivers || []).filter(d => d.bestLapMs > 0).sort((a,b) => a.bestLapMs - b.bestLapMs)[0];
+          renderTimingTable(currentState.drivers || [], fastestLap, currentState.bestSectors);
+        }
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/sessions/' + encodeURIComponent(mode));
+        if (!res.ok) return;
+        const session = await res.json();
+        if (!session) return;
+
+        if (viewIndicator) {
+          viewIndicator.textContent = 'HISTORIAL: ' + (session.sessionType || 'SESIÓN');
+          viewIndicator.className = 'text-[11px] font-mono text-purple-400 bg-purple-500/15 px-2.5 py-0.5 border border-purple-500/40 shrink-0';
+        }
+        if (tableTitle) {
+          tableTitle.innerHTML = '<span class="text-lsa-gold">›</span> ' + escapeHtml((session.sessionType || 'SESIÓN').toUpperCase()) + ' · <span class="text-zinc-300 font-normal text-base">' + escapeHtml(session.trackName || '') + '</span>';
+        }
+
+        const fastestLap = (session.drivers || []).filter(d => d.bestLapMs > 0).sort((a,b) => a.bestLapMs - b.bestLapMs)[0];
+        renderTimingTable(session.drivers || [], fastestLap, session.bestSectors || ['', '', '']);
+
+        // Actualizar footer de mejores sectores para la sesión histórica
+        if (session.bestSectors) {
+          const s1El = document.getElementById('best-sector-1');
+          const s2El = document.getElementById('best-sector-2');
+          const s3El = document.getElementById('best-sector-3');
+          if (s1El) s1El.textContent = session.bestSectors[0] || '—';
+          if (s2El) s2El.textContent = session.bestSectors[1] || '—';
+          if (s3El) s3El.textContent = session.bestSectors[2] || '—';
+        }
+      } catch (e) {
+        console.error('Error cargando sesión:', e);
+      }
+    }
+
+    function renderTimingTable(drivers, fastestLap, bestSectors) {
+      const tbody = document.getElementById('timing-table-tbody');
       if (!tbody) return;
 
       if (!drivers || drivers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="py-10 text-center text-lsa-mute font-mono">No hay pilotos en pista en este momento.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="py-10 text-center text-lsa-mute font-mono text-xs">No hay tiempos registrados en esta sesión aún.</td></tr>';
         return;
       }
 
       let html = '';
-      drivers.forEach(d => {
-        const isPits = d.isInPits;
-        const gDisplay = d.gearDisplay || formatGear(d.gear);
-        const gearColor = gearBadgeClass(gDisplay);
+      drivers.forEach((d, idx) => {
+        const pos = d.position || idx + 1;
         const isFastestInSession = fastestLap && d.bestLapMs > 0 && d.bestLapMs === fastestLap.bestLapMs;
+        const isSessionBestLap = d.bestState === 'session' || isFastestInSession;
 
-        // Podio colors
-        let posBadge = \`<span class="font-display italic font-bold text-base">\${d.position ?? '-'}</span>\`;
-        if (d.position === 1) {
-          posBadge = \`<span class="font-display italic font-bold text-lg text-[#F2B92B]">1</span>\`;
-        } else if (d.position === 2) {
-          posBadge = \`<span class="font-display italic font-bold text-lg text-[#C9D3DF]">2</span>\`;
-        } else if (d.position === 3) {
-          posBadge = \`<span class="font-display italic font-bold text-lg text-[#D9863F]">3</span>\`;
+        // Indicador de barra de estado izquierda
+        let statusIndicator = 'bg-zinc-600';
+        let statusBadge = '';
+        if (d.status === 'gone' || d.isOnline === false) {
+          statusIndicator = 'bg-zinc-600';
+          statusBadge = '<span class="ml-1.5 px-1.5 py-0.2 rounded bg-zinc-700/60 text-zinc-400 font-bold font-mono text-[9px] uppercase tracking-wider">LEFT</span>';
+        } else if (d.isInPits || d.status === 'pit') {
+          statusIndicator = 'bg-amber-400';
+          statusBadge = '<span class="ml-1.5 px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-bold font-mono text-[9px] uppercase tracking-wider">PIT</span>';
+        } else {
+          statusIndicator = 'bg-emerald-500';
+          statusBadge = '<span class="ml-1.5 px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-bold font-mono text-[9px] uppercase tracking-wider">ON</span>';
         }
 
-        const driverColor = d.color || '#23B6E0';
+        // Posición
+        let posText = \`<span class="font-bold text-white">\${pos}</span>\`;
+        if (pos === 1) posText = '<span class="text-[#F2B92B] font-bold">1</span>';
+        else if (pos === 2) posText = '<span class="text-[#C9D3DF] font-bold">2</span>';
+        else if (pos === 3) posText = '<span class="text-[#D9863F] font-bold">3</span>';
+
+        // Mejor tiempo
+        let bestHtml = '<span class="text-zinc-500 font-mono text-xs">—</span>';
+        const bestFormatted = d.bestLapFormatted || d.bestLap;
+        if (bestFormatted && bestFormatted !== '—' && bestFormatted !== 'Sin tiempo') {
+          if (isSessionBestLap) {
+            bestHtml = \`<span class="px-1.5 py-0.5 rounded bg-[#A855F7] text-white font-mono font-bold text-xs">\${escapeHtml(bestFormatted)}</span>\`;
+          } else {
+            bestHtml = \`<span class="font-mono font-bold text-xs text-emerald-400">\${escapeHtml(bestFormatted)}</span>\`;
+          }
+        }
+
+        // Última vuelta
+        let lastHtml = '<span class="text-zinc-500 font-mono text-xs">—</span>';
+        const lastFormatted = d.lastLapFormatted || d.lastLap;
+        if (lastFormatted && lastFormatted !== '—' && lastFormatted !== 'Sin tiempo') {
+          if (d.lastState === 'cut') {
+            lastHtml = \`<span class="px-1.5 py-0.5 rounded bg-[#F59E0B]/20 text-[#F59E0B] line-through font-mono font-bold text-xs" title="Corte de pista">\${escapeHtml(lastFormatted)}</span>\`;
+          } else if (d.lastState === 'personal') {
+            lastHtml = \`<span class="px-1.5 py-0.5 rounded bg-[#10B981]/25 text-[#10B981] font-mono font-bold text-xs">\${escapeHtml(lastFormatted)}</span>\`;
+          } else {
+            lastHtml = \`<span class="font-mono text-slate-300 text-xs">\${escapeHtml(lastFormatted)}</span>\`;
+          }
+        }
+
+        // Sectores S1, S2, S3
+        const renderSector = (sec, secState) => {
+          if (!sec || sec === '—') return '<span class="text-zinc-600 font-mono text-xs">—</span>';
+          if (secState === 'session') {
+            return \`<span class="px-1.5 py-0.5 rounded bg-[#A855F7] text-white font-mono font-bold text-xs">\${escapeHtml(sec)}</span>\`;
+          }
+          if (secState === 'personal') {
+            return \`<span class="px-1.5 py-0.5 rounded bg-[#10B981]/25 text-[#10B981] font-mono font-bold text-xs">\${escapeHtml(sec)}</span>\`;
+          }
+          return \`<span class="text-zinc-400 font-mono text-xs">\${escapeHtml(sec)}</span>\`;
+        };
+
+        const s1Html = renderSector(d.sectors?.[0], d.sectorStates?.[0]);
+        const s2Html = renderSector(d.sectors?.[1], d.sectorStates?.[1]);
+        const s3Html = renderSector(d.sectors?.[2], d.sectorStates?.[2]);
+
+        // Gap e Interval
+        const gapText = d.gap && d.gap.trim() ? escapeHtml(d.gap) : (pos === 1 ? '' : '—');
+        const intText = d.interval && d.interval.trim() ? escapeHtml(d.interval) : (pos === 1 ? '' : '—');
+
+        // Velocidad y contactos
+        const speedText = d.speedKmh > 0 ? \`\${d.speedKmh} km/h\` : '— km/h';
+        const hitsCount = d.hits ?? d.incidentsCount ?? 0;
+        const hitsText = hitsCount > 0
+          ? \`<span class="text-amber-400 font-bold">\${hitsCount}</span>\`
+          : '<span class="text-zinc-600">—</span>';
 
         html += \`
-          <tr class="hover:bg-white/[0.03] transition-colors">
-            <td class="py-2 px-1.5 text-center whitespace-nowrap">
-              \${posBadge}
+          <tr class="hover:bg-white/[0.03] transition-colors border-b border-lsa-wire/40">
+            <td class="py-2.5 px-2 text-center whitespace-nowrap">
+              <div class="flex items-center justify-center gap-1.5">
+                <span class="w-1 h-5 rounded-full \${statusIndicator} shrink-0"></span>
+                \${posText}
+              </div>
             </td>
             <td class="py-2 px-2 whitespace-nowrap">
-              <div class="flex items-center gap-1.5">
-                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:\${driverColor};"></span>
+              <div class="flex items-center">
                 <span class="font-bold text-white text-xs sm:text-sm">\${escapeHtml(d.name)}</span>
-                <span class="text-[11px] text-lsa-mute font-mono">#\${d.raceNumber ?? '0'}</span>
+                \${statusBadge}
+              </div>
+              <div class="text-[11px] text-zinc-400 font-sans mt-0.5 leading-none">
+                \${escapeHtml(d.carName || d.carModel || 'Auto')} · <span class="text-zinc-500">\${escapeHtml(d.skinName || d.tyres || 'Standard')}</span>
               </div>
             </td>
-            <td class="py-2 px-2 text-xs text-slate-300 max-w-[130px] truncate whitespace-nowrap" title="\${escapeHtml(d.carName)}">
-              \${escapeHtml(d.carName)}
+            <td class="py-2.5 px-2 text-right font-mono text-xs text-zinc-300 whitespace-nowrap">
+              \${d.laps ?? d.numLaps ?? 0}
             </td>
-            <td class="py-2 px-1.5 text-xs font-mono text-center text-lsa-mute whitespace-nowrap">
-              \${escapeHtml(d.tyres || '—')}
+            <td class="py-2.5 px-2 text-right whitespace-nowrap">
+              \${bestHtml}
             </td>
-            <td class="py-2 px-2 font-mono text-xs font-bold whitespace-nowrap \${isFastestInSession ? 'text-lsa-violet' : (d.bestLapMs > 0 ? 'text-emerald-400' : 'text-slate-500')}">
-              \${escapeHtml(d.bestLapFormatted)}
-              \${isFastestInSession ? '<span class="ml-1 text-[10px] px-1 py-0.2 rounded bg-purple-500/20 text-lsa-violet uppercase">VR</span>' : ''}
+            <td class="py-2.5 px-2 text-right font-mono text-xs text-zinc-400 whitespace-nowrap">
+              \${gapText}
             </td>
-            <td class="py-2 px-1.5 font-mono text-xs text-lsa-mute whitespace-nowrap">
-              \${escapeHtml(d.deltaToBestFormatted || '0.000s')}
+            <td class="py-2.5 px-2 text-right font-mono text-xs text-zinc-400 whitespace-nowrap">
+              \${intText}
             </td>
-            <td class="py-2 px-1.5 font-mono text-xs text-slate-300 whitespace-nowrap">
-              \${escapeHtml(d.lastLapFormatted)}
+            <td class="py-2.5 px-2 text-right whitespace-nowrap">
+              \${lastHtml}
             </td>
-            <td class="py-2 px-1.5 font-mono text-xs text-center text-slate-300 whitespace-nowrap">
-              \${d.numLaps || 0}
+            <td class="py-2.5 px-1.5 text-right whitespace-nowrap">
+              \${s1Html}
             </td>
-            <td class="py-2 px-2 font-mono text-xs text-white whitespace-nowrap">
-              <div class="flex items-center gap-1.5">
-                <span class="inline-block w-[64px] text-right font-mono">
-                  <span>\${d.speedKmh}</span> <span class="text-[10px] text-slate-500">km/h</span>
-                </span>
-                <span class="inline-block w-5 text-center py-0.5 rounded text-[10px] font-mono font-bold shrink-0 \${gearColor}">\${gDisplay}</span>
-              </div>
+            <td class="py-2.5 px-1.5 text-right whitespace-nowrap">
+              \${s2Html}
             </td>
-            <td class="py-2 px-2 text-center whitespace-nowrap min-w-[90px]">
-              \${isPits
-                ? '<span class="inline-block whitespace-nowrap px-2.5 py-0.5 text-[10px] font-mono font-bold tracking-wider rounded bg-[#F2B92B]/15 text-[#F2B92B] border border-[#F2B92B]/30">EN BOXES</span>'
-                : '<span class="inline-block whitespace-nowrap px-2.5 py-0.5 text-[10px] font-mono font-bold tracking-wider rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">EN PISTA</span>'
-              }
+            <td class="py-2.5 px-1.5 text-right whitespace-nowrap">
+              \${s3Html}
+            </td>
+            <td class="py-2.5 px-2 text-right font-mono text-xs text-zinc-300 whitespace-nowrap">
+              \${speedText}
+            </td>
+            <td class="py-2.5 px-2 text-center font-mono text-xs whitespace-nowrap">
+              \${hitsText}
             </td>
           </tr>
         \`;
       });
 
-      tbody.innerHTML = html;
-    }
-
-    function renderStoredTimesTable(storedTimes, fastestLap) {
-      const tbody = document.getElementById('stored-times-tbody');
-      const countEl = document.getElementById('stored-times-count');
-      if (!tbody) return;
-
-      if (countEl) countEl.textContent = (storedTimes ? storedTimes.length : 0) + ' tiempos';
-
-      if (!storedTimes || storedTimes.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="py-6 text-center text-lsa-mute font-mono text-xs">No hay tiempos registrados en esta sesión aún.</td></tr>';
-        return;
-      }
-
-      let html = '';
-      storedTimes.slice(0, 25).forEach((t, idx) => {
-        const isFastestInSession = fastestLap && t.bestLapMs > 0 && t.bestLapMs === fastestLap.bestLapMs;
-        let posHtml = \`<span class="text-lsa-mute">#\${idx + 1}</span>\`;
-        if (idx === 0) posHtml = \`<span class="text-[#F2B92B] font-bold">1.º</span>\`;
-        else if (idx === 1) posHtml = \`<span class="text-[#C9D3DF] font-bold">2.º</span>\`;
-        else if (idx === 2) posHtml = \`<span class="text-[#D9863F] font-bold">3.º</span>\`;
-
-        html += \`
-          <tr class="hover:bg-white/[0.03] font-mono text-xs transition-colors">
-            <td class="py-2 px-2 text-center">\${posHtml}</td>
-            <td class="py-2 px-2 font-bold text-white">\${escapeHtml(t.name)}</td>
-            <td class="py-2 px-2 text-slate-300">\${escapeHtml(t.carName)}</td>
-            <td class="py-2 px-2 text-lsa-mute">\${escapeHtml(t.tyres)}</td>
-            <td class="py-2 px-2 font-bold \${isFastestInSession ? 'text-lsa-violet' : 'text-emerald-400'}">
-              \${escapeHtml(t.bestLapFormatted)}
-              \${isFastestInSession ? '<span class="ml-1 text-[10px] px-1 py-0.2 rounded bg-purple-500/20 text-lsa-violet uppercase">VR</span>' : ''}
-            </td>
-            <td class="py-2 px-2 text-slate-300">\${escapeHtml(t.lastLapFormatted)}</td>
-            <td class="py-2 px-2 text-center text-slate-300">\${t.numLaps}</td>
-            <td class="py-2 px-2 text-slate-300">\${t.topSpeedKmh} km/h</td>
-            <td class="py-2 px-2 text-center">
-              \${t.isOnline
-                ? '<span class="w-2 h-2 inline-block rounded-full bg-emerald-400" title="En línea"></span>'
-                : '<span class="w-2 h-2 inline-block rounded-full bg-slate-600" title="Desconectado"></span>'
-              }
-            </td>
-          </tr>
-        \`;
-      });
       tbody.innerHTML = html;
     }
 
@@ -1166,7 +1311,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       };
     }
 
-    // Initial fetch snapshot + SSE connect
+    // Initial fetch snapshot + SSE connect + load saved sessions
+    fetchSavedSessions();
+    setInterval(fetchSavedSessions, 20000);
+
     fetch('/api/live')
       .then(r => r.json())
       .then(state => updateLiveDashboard(state))

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { env } from '../config/env.js';
 import { emperorService } from '../services/emperor.service.js';
 import { liveTimingService } from '../services/livetiming.service.js';
+import { sessionsService } from '../services/sessions.service.js';
 import { tablesService, type CustomTable } from '../services/tables.service.js';
 import { DASHBOARD_HTML, ACC_COMING_SOON_HTML } from './dashboard.html.js';
 
@@ -91,6 +92,28 @@ export function startWebServer(discordClient: any = null): http.Server {
         req.on('close', () => {
           unsubscribe();
         });
+        return;
+      }
+
+      // 2c. Historial de sesiones guardadas
+      if (req.method === 'GET' && pathname === '/api/sessions') {
+        const list = await sessionsService.listSessions();
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(list));
+        return;
+      }
+
+      // 2d. Detalle de una sesión guardada
+      if (req.method === 'GET' && pathname.startsWith('/api/sessions/')) {
+        const sessionId = pathname.replace('/api/sessions/', '').trim();
+        const sessionDetail = await sessionsService.getSession(sessionId);
+        if (!sessionDetail) {
+          res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: 'Session not found' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(sessionDetail));
         return;
       }
 

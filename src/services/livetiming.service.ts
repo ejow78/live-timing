@@ -1,5 +1,6 @@
 import { env } from '../config/env.js';
 import { emperorService } from './emperor.service.js';
+import { sessionsService, type SavedSession, type SavedSessionDriver } from './sessions.service.js';
 
 export interface DriverLapRecord {
   lapNumber: number;
@@ -41,6 +42,7 @@ export interface LiveMapDriver {
   raceNumber: number;
   carModel: string;
   carName: string;
+  skinName: string;
   tyres: string;
   position: number;
   isInPits: boolean;
@@ -71,11 +73,20 @@ export interface LiveMapDriver {
   numLaps: number;
   bestLapMs: number;
   bestLapFormatted: string;
+  bestState: string;
   lastLapFormatted: string;
+  lastState: string;
+  lastCuts: number;
   gap: string;
+  interval: string;
+  sectors: [string, string, string];
+  sectorStates: [string, string, string];
   ballast: number;
   restrictor: number;
   incidentsCount: number;
+  hits: number;
+  status: string;
+  isOnline: boolean;
   hasPosition: boolean;
   worldX: number;
   worldZ: number;
@@ -92,12 +103,22 @@ export interface StoredSessionTime {
   name: string;
   carModel: string;
   carName: string;
+  skinName: string;
   tyres: string;
   bestLapMs: number;
   bestLapFormatted: string;
+  bestState?: string;
   lastLapFormatted: string;
+  lastState?: string;
+  lastCuts?: number;
+  gap?: string;
+  interval?: string;
+  sectors?: [string, string, string];
+  sectorStates?: [string, string, string];
   numLaps: number;
   topSpeedKmh: number;
+  hits?: number;
+  status?: string;
   isOnline: boolean;
 }
 
@@ -125,6 +146,7 @@ export interface LiveTelemetryState {
   connectedToWs: boolean;
   realtimePosIntervalMs: number;
   serverName: string;
+  championshipName: string;
   trackId: string;
   trackLayout: string;
   trackTitle: string;
@@ -143,6 +165,9 @@ export interface LiveTelemetryState {
   password: string;
   mapImageUrl: string;
   previewImageUrl: string;
+  bestLap: string;
+  bestBy: string;
+  bestSectors: [string, string, string];
   trackFlag: 'green' | 'yellow' | 'blue' | 'checkered';
   trackFlagTitle: string;
   trackFlagSubtitle: string;
@@ -293,8 +318,10 @@ export class LiveTimingService {
   private pollTimer: NodeJS.Timeout | null = null;
   private isPolling = false;
   private currentSessionFingerprint = '';
+  private currentSessionId = '';
+  private lastDiskSaveTime = 0;
 
-  private driversByGuid = new Map<string, LiveMapDriver>();
+  private allPlayersByGuid = new Map<string, LiveMapDriver>();
   private storedTimesList: StoredSessionTime[] = [];
   private collisionsList: LiveCollisionEvent[] = [];
   private chatList: LiveChatMessage[] = [];
@@ -307,6 +334,7 @@ export class LiveTimingService {
     connectedToWs: false,
     realtimePosIntervalMs: 1000,
     serverName: 'LATAM SimRacing Alliance',
+    championshipName: '',
     trackId: '',
     trackLayout: '',
     trackTitle: 'Cargando circuito...',
@@ -325,6 +353,9 @@ export class LiveTimingService {
     password: env.AC_SERVER_PASSWORD || '',
     mapImageUrl: '',
     previewImageUrl: '',
+    bestLap: '',
+    bestBy: '',
+    bestSectors: ['', '', ''],
     trackFlag: 'green',
     trackFlagTitle: 'BANDERA VERDE',
     trackFlagSubtitle: 'Pista libre en todos los sectores',
@@ -348,7 +379,7 @@ export class LiveTimingService {
 
   public start(): void {
     if (this.pollTimer) return;
-    console.log('🏁 Iniciando LiveTimingService con polling a /public/live.json...');
+    console.log('🏁 Iniciando LiveTimingService con polling a /public/live.json y auto-guardado de sesiones...');
     void this.pollLiveJson();
     this.pollTimer = setInterval(() => {
       void this.pollLiveJson();
@@ -370,8 +401,18 @@ export class LiveTimingService {
       .replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
+  private extractChampionshipName(rawServerName: string): string {
+    if (!rawServerName) return '';
+    // Format: "LATAM Simracing Alliance - Ginetta GT4 Supercup" -> "Ginetta GT4 Supercup"
+    const cleaned = rawServerName.replace(/^LATAM\s+Simracing\s+Alliance\s*[-–:]\s*/i, '').trim();
+    if (cleaned && cleaned.toLowerCase() !== rawServerName.toLowerCase()) {
+      return cleaned;
+    }
+    return '';
+  }
+
   public getState(): LiveTelemetryState {
-    const drivers = Array.from(this.driversByGuid.values())
+    const drivers = Array.from(this.allPlayersByGuid.values())
       .map((d) => ({
         ...d,
         laps: this.driverLapsMap.get(d.guid) || [],
@@ -411,12 +452,13 @@ export class LiveTimingService {
 
   private recomputeFlags(): void {
     const now = Date.now();
-    const drivers = Array.from(this.driversByGuid.values());
+    const drivers = Array.from(this.allPlayersByGuid.values());
     const yellowSectorsSet = new Set<number>();
     let hasCheckered = false;
     let hasBlue = false;
 
     for (const d of drivers) {
+      if (!d.isOnline) continue;
       if (d.hasCompletedSession) hasCheckered = true;
       if (d.blueFlag) hasBlue = true;
       if (!d.isInPits && d.hasPosition && d.speedKmh > 0 && d.speedKmh < 25) {
@@ -455,12 +497,62 @@ export class LiveTimingService {
     }
   }
 
-  private translateSessionType(type?: string): string {
-    if (!type) return 'Práctica';
-    const lower = type.toLowerCase();
-    if (lower.includes('race') || lower.includes('carrera')) return 'Carrera';
-    if (lower.includes('qual') || lower.includes('clasif')) return 'Clasificación';
-    return 'Práctica';
+  private async persistCurrentSessionToDisk(data: RawLiveJson, sessionLabel: string, championshipName: string): Promise<void> {
+    const trackKey = data.trackKey || '';
+    if (!this.currentSessionId) {
+      const now = new Date();
+      const datePart = now.toISOString().split('T')[0]!;
+      const timePart = now.toTimeString().split(' ')[0]!.replace(/:/g, '-');
+      const safeLabel = sessionLabel.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      const safeTrack = (data.trackKey || 'track').replace(/[^a-z0-9]+/g, '_');
+      this.currentSessionId = `session_${datePart}_${timePart}_${safeTrack}_${safeLabel}`;
+    }
+
+    const drivers: SavedSessionDriver[] = Array.from(this.allPlayersByGuid.values())
+      .filter((d) => d.numLaps > 0 || d.bestLapMs > 0)
+      .map((d) => ({
+        position: d.position,
+        name: d.name,
+        carName: d.carName,
+        carModel: d.carModel,
+        skinName: d.skinName,
+        laps: d.numLaps,
+        bestLap: d.bestLapFormatted,
+        bestLapMs: d.bestLapMs,
+        gap: d.gap,
+        interval: d.interval,
+        lastLap: d.lastLapFormatted,
+        sectors: d.sectors,
+        sectorStates: d.sectorStates,
+        bestState: d.bestState,
+        lastState: d.lastState,
+        speedKmh: d.speedKmh,
+        hits: d.hits,
+        status: d.status,
+        isOnline: d.isOnline,
+      }))
+      .sort((a, b) => a.position - b.position);
+
+    if (drivers.length === 0) return;
+
+    const sessionRecord: SavedSession = {
+      id: this.currentSessionId,
+      savedAt: new Date().toISOString(),
+      championshipName: championshipName || 'LATAM Simracing Alliance',
+      trackKey,
+      trackName: data.trackName || data.session?.trackName || 'Circuito',
+      sessionName: data.session?.name || 'Sesión',
+      sessionType: sessionLabel,
+      bestLap: data.bestLap || '',
+      bestBy: data.bestBy || '',
+      bestSectors: (data.bestSectors || ['', '', '']) as [string, string, string],
+      totalDrivers: drivers.length,
+      totalLaps: drivers.reduce((acc, d) => acc + d.laps, 0),
+      drivers,
+      events: data.events || [],
+    };
+
+    await sessionsService.saveSession(sessionRecord);
   }
 
   private async pollLiveJson(): Promise<void> {
@@ -486,32 +578,44 @@ export class LiveTimingService {
 
       const session = data.session || {};
       const trackKey = data.trackKey || (session.track ? (session.layout ? `${session.track}/${session.layout}` : session.track) : '');
-      const sessionName = session.name || 'Sesión LSA';
-      const sessionType = this.translateSessionType(session.type);
+      const rawServerName = data.trackName || session.trackName || 'LATAM Simracing Alliance';
+      const championshipName = this.extractChampionshipName(rawServerName);
+      const sessionLabel = sessionsService.getSessionLabel(session.type || '', session.name || '');
 
-      // Detección de cambio de sesión / campeonato / circuito
-      const fingerprint = `${trackKey}|${sessionName}|${sessionType}`;
+      // Detección de cambio de sesión
+      const fingerprint = `${trackKey}|${session.name || ''}|${sessionLabel}`;
       if (this.currentSessionFingerprint && this.currentSessionFingerprint !== fingerprint) {
-        console.log(`🔄 Cambio de sesión detectado (${this.currentSessionFingerprint} ➔ ${fingerprint}). Limpiando datos de sesión previa...`);
-        this.driversByGuid.clear();
+        console.log(`🔄 Cambio de sesión detectado (${this.currentSessionFingerprint} ➔ ${fingerprint}).`);
+        this.allPlayersByGuid.clear();
         this.storedTimesList = [];
         this.collisionsList = [];
         this.chatList = [];
         this.driverLapsMap.clear();
         this.processedEventKeys.clear();
+        this.currentSessionId = '';
       }
       this.currentSessionFingerprint = fingerprint;
 
-      this.state.serverName = data.trackName || session.trackName || 'LATAM Simracing Alliance';
+      this.state.serverName = rawServerName;
+      this.state.championshipName = championshipName;
       this.state.trackId = session.track || trackKey.split('/')[0] || '';
       this.state.trackLayout = session.layout || trackKey.split('/')[1] || '';
       this.state.trackTitle = data.trackName || session.trackName || this.state.trackId || 'Circuito en vivo';
       this.state.trackLength = data.trackLength || '';
-      this.state.sessionType = sessionType;
+      this.state.sessionType = sessionLabel;
       this.state.sessionLaps = session.laps || 0;
       this.state.sessionDurationMinutes = session.timeLeftSec ? Math.round(session.timeLeftSec / 60) : 0;
       this.state.ambientTemp = typeof session.ambient === 'number' ? session.ambient : 20;
       this.state.roadTemp = typeof session.road === 'number' ? session.road : 26;
+
+      this.state.bestLap = data.bestLap || '';
+      this.state.bestBy = data.bestBy || '';
+      const rawBestSectors = data.bestSectors || ['', '', ''];
+      this.state.bestSectors = [
+        rawBestSectors[0] || '',
+        rawBestSectors[1] || '',
+        rawBestSectors[2] || '',
+      ];
 
       const mapWidth = data.map?.width && data.map.width > 0 ? data.map.width : 1600;
       const mapHeight = data.map?.height && data.map.height > 0 ? data.map.height : 1600;
@@ -531,10 +635,9 @@ export class LiveTimingService {
       }
 
       // Procesar pilotos
-      const activeGuids = new Set<string>();
       const storedMap = new Map<string, StoredSessionTime>();
-
       const players = Array.isArray(data.players) ? data.players : [];
+
       players.forEach((p, idx) => {
         const guid = String(p.id ?? idx);
         const isOnline = p.status !== 'gone';
@@ -544,119 +647,142 @@ export class LiveTimingService {
         const speedKmh = Math.round(Number(p.speed ?? 0));
         const carModel = p.model || '';
         const carName = p.modelName || this.cleanCarModel(carModel);
+        const skinName = p.skinName || p.skin || 'Default';
 
-        // Actualizar StoredSessionTimes si dio vueltas o marcó tiempo
+        const posX = Number(p.x ?? 0);
+        const posY = Number(p.y ?? 0);
+        const hasPos = Boolean(p.onMap && (posX !== 0 || posY !== 0));
+        const pctX = mapWidth > 0 ? Math.max(0, Math.min(100, (posX / mapWidth) * 100)) : 0;
+        const pctY = mapHeight > 0 ? Math.max(0, Math.min(100, (posY / mapHeight) * 100)) : 0;
+        const spline = Number(p.progress ?? 0);
+        const sector = spline < 0.333 ? 1 : spline < 0.666 ? 2 : 3;
+
+        const rawSectors = Array.isArray(p.sectors) ? p.sectors : ['', '', ''];
+        const sectors: [string, string, string] = [
+          rawSectors[0] || '',
+          rawSectors[1] || '',
+          rawSectors[2] || '',
+        ];
+
+        const rawSectorStates = Array.isArray(p.sectorStates) ? p.sectorStates : ['', '', ''];
+        const sectorStates: [string, string, string] = [
+          rawSectorStates[0] || '',
+          rawSectorStates[1] || '',
+          rawSectorStates[2] || '',
+        ];
+
+        let driverLaps = this.driverLapsMap.get(guid);
+        if (!driverLaps) {
+          driverLaps = [];
+          if (bestLapMs > 0) {
+            driverLaps.push({
+              lapNumber: numLaps || 1,
+              lapTimeMs: bestLapMs,
+              lapFormatted: p.bestLap || '',
+              isPersonalBest: true,
+              topSpeedKmh: speedKmh,
+              tyre: skinName,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            });
+          }
+          this.driverLapsMap.set(guid, driverLaps);
+        }
+
+        const existing = this.allPlayersByGuid.get(guid);
+
+        const driverObj: LiveMapDriver = {
+          guid,
+          carId: Math.abs(Number(p.id ?? idx)),
+          name: p.name || 'Piloto',
+          initials: (p.name || 'PIL').slice(0, 3).toUpperCase(),
+          raceNumber: idx + 1,
+          carModel,
+          carName,
+          skinName,
+          tyres: skinName,
+          position: Number(p.position || idx + 1),
+          isInPits: p.status === 'pit' || (!hasPos && speedKmh === 0),
+          ping: 0,
+          speedKmh,
+          topSpeedKmh: Math.max(speedKmh, existing?.topSpeedKmh || 0),
+          gear: p.gear === 'R' ? 0 : p.gear === 'N' ? 1 : parseInt(p.gear || '1', 10) + 1,
+          gearDisplay: p.gear || 'N',
+          rpm: 0,
+          maxRpm: 8000,
+          rpmPct: 0,
+          steerAngle: 0,
+          steerDeg: 0,
+          throttlePct: 0,
+          brakePct: 0,
+          longitudinalG: 0,
+          drsActive: false,
+          blueFlag: false,
+          yellowFlag: false,
+          hasCompletedSession: false,
+          currentSector: sector,
+          splinePct: Math.round(spline * 1000) / 10,
+          deltaToBestMs: 0,
+          deltaToSelfMs: 0,
+          deltaToBestFormatted: '0.000s',
+          deltaToSelfFormatted: '0.000s',
+          headingDeg: Math.round(Number(p.heading ?? 0)),
+          numLaps,
+          bestLapMs,
+          bestLapFormatted: p.bestLap && p.bestLap.trim() ? p.bestLap : '—',
+          bestState: p.bestState || (p.bestLap && p.bestLap === data.bestLap ? 'session' : ''),
+          lastLapFormatted: p.lastLap && p.lastLap.trim() ? p.lastLap : '—',
+          lastState: p.lastState || '',
+          lastCuts: Number(p.lastCuts ?? 0),
+          gap: p.gap || '',
+          interval: p.interval || '',
+          sectors,
+          sectorStates,
+          ballast: 0,
+          restrictor: 0,
+          incidentsCount: Number(p.collisions ?? 0),
+          hits: Number(p.collisions ?? 0),
+          status: p.status || (isOnline ? 'track' : 'gone'),
+          isOnline,
+          hasPosition: hasPos,
+          worldX: posX,
+          worldZ: posY,
+          mapPixelX: posX,
+          mapPixelY: posY,
+          mapPercentX: Math.round(pctX * 100) / 100,
+          mapPercentY: Math.round(pctY * 100) / 100,
+          color: existing?.color || DRIVER_COLORS[idx % DRIVER_COLORS.length]!,
+          laps: driverLaps,
+        };
+
+        this.allPlayersByGuid.set(guid, driverObj);
+
         if (numLaps > 0 || bestLapMs > 0) {
           storedMap.set(`${guid}_${carModel}`, {
             guid,
-            name: p.name || 'Piloto',
+            name: driverObj.name,
             carModel,
             carName,
-            tyres: p.skinName || p.skin || '-',
+            skinName,
+            tyres: skinName,
             bestLapMs,
-            bestLapFormatted: p.bestLap && p.bestLap.trim() ? p.bestLap : 'Sin tiempo',
-            lastLapFormatted: p.lastLap && p.lastLap.trim() ? p.lastLap : 'Sin tiempo',
+            bestLapFormatted: driverObj.bestLapFormatted,
+            bestState: driverObj.bestState,
+            lastLapFormatted: driverObj.lastLapFormatted,
+            lastState: driverObj.lastState,
+            lastCuts: driverObj.lastCuts,
+            gap: driverObj.gap,
+            interval: driverObj.interval,
+            sectors,
+            sectorStates,
             numLaps,
-            topSpeedKmh: speedKmh,
+            topSpeedKmh: driverObj.topSpeedKmh,
+            hits: driverObj.hits,
+            status: driverObj.status,
             isOnline,
-          });
-        }
-
-        // Si está en la sesión (conectado)
-        if (isOnline) {
-          activeGuids.add(guid);
-
-          const posX = Number(p.x ?? 0);
-          const posY = Number(p.y ?? 0);
-          const hasPos = Boolean(p.onMap && (posX !== 0 || posY !== 0));
-          const pctX = mapWidth > 0 ? Math.max(0, Math.min(100, (posX / mapWidth) * 100)) : 0;
-          const pctY = mapHeight > 0 ? Math.max(0, Math.min(100, (posY / mapHeight) * 100)) : 0;
-          const spline = Number(p.progress ?? 0);
-          const sector = spline < 0.333 ? 1 : spline < 0.666 ? 2 : 3;
-
-          let driverLaps = this.driverLapsMap.get(guid);
-          if (!driverLaps) {
-            driverLaps = [];
-            if (bestLapMs > 0) {
-              driverLaps.push({
-                lapNumber: numLaps || 1,
-                lapTimeMs: bestLapMs,
-                lapFormatted: p.bestLap || '',
-                isPersonalBest: true,
-                topSpeedKmh: speedKmh,
-                tyre: p.skinName || '-',
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              });
-            }
-            this.driverLapsMap.set(guid, driverLaps);
-          }
-
-          const existing = this.driversByGuid.get(guid);
-
-          this.driversByGuid.set(guid, {
-            guid,
-            carId: Math.abs(Number(p.id ?? idx)),
-            name: p.name || 'Piloto',
-            initials: (p.name || 'PIL').slice(0, 3).toUpperCase(),
-            raceNumber: idx + 1,
-            carModel,
-            carName,
-            tyres: p.skinName || p.skin || '-',
-            position: Number(p.position || idx + 1),
-            isInPits: p.status === 'pit' || (!hasPos && speedKmh === 0),
-            ping: 0,
-            speedKmh,
-            topSpeedKmh: Math.max(speedKmh, existing?.topSpeedKmh || 0),
-            gear: p.gear === 'R' ? 0 : p.gear === 'N' ? 1 : parseInt(p.gear || '1', 10) + 1,
-            gearDisplay: p.gear || 'N',
-            rpm: 0,
-            maxRpm: 8000,
-            rpmPct: 0,
-            steerAngle: 0,
-            steerDeg: 0,
-            throttlePct: 0,
-            brakePct: 0,
-            longitudinalG: 0,
-            drsActive: false,
-            blueFlag: false,
-            yellowFlag: false,
-            hasCompletedSession: false,
-            currentSector: sector,
-            splinePct: Math.round(spline * 1000) / 10,
-            deltaToBestMs: 0,
-            deltaToSelfMs: 0,
-            deltaToBestFormatted: '0.000s',
-            deltaToSelfFormatted: '0.000s',
-            headingDeg: Math.round(Number(p.heading ?? 0)),
-            numLaps,
-            bestLapMs,
-            bestLapFormatted: p.bestLap || 'Sin tiempo',
-            lastLapFormatted: p.lastLap || 'Sin tiempo',
-            gap: p.gap || p.interval || '',
-            ballast: 0,
-            restrictor: 0,
-            incidentsCount: Number(p.collisions ?? 0),
-            hasPosition: hasPos,
-            worldX: posX,
-            worldZ: posY,
-            mapPixelX: posX,
-            mapPixelY: posY,
-            mapPercentX: Math.round(pctX * 100) / 100,
-            mapPercentY: Math.round(pctY * 100) / 100,
-            color: existing?.color || DRIVER_COLORS[idx % DRIVER_COLORS.length]!,
-            laps: driverLaps,
           });
         }
       });
 
-      // Eliminar pilotos que ya no están online
-      for (const [guid] of this.driversByGuid) {
-        if (!activeGuids.has(guid)) {
-          this.driversByGuid.delete(guid);
-        }
-      }
-
-      // Ordenar storedTimes
       this.storedTimesList = Array.from(storedMap.values()).sort((a, b) => {
         if (a.bestLapMs > 0 && b.bestLapMs > 0) return a.bestLapMs - b.bestLapMs;
         if (a.bestLapMs > 0) return -1;
@@ -721,10 +847,42 @@ export class LiveTimingService {
         if (this.collisionsList.length > 30) this.collisionsList.length = 30;
       }
 
+      // Procesar y FILTRAR chat
+      if (Array.isArray(data.chat)) {
+        const cleanChat: LiveChatMessage[] = [];
+        for (const c of data.chat) {
+          const rawMsg = (c.text || c.message || '').trim();
+          if (!rawMsg) continue;
+
+          // Filtrar protocolos internos de CSP y ACP
+          if (rawMsg.includes('$CSP0:') || rawMsg.includes('ACP:') || rawMsg.startsWith('Server → Spotter')) {
+            continue;
+          }
+
+          cleanChat.push({
+            id: `chat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            time: c.at || new Date().toISOString(),
+            timeFormatted: c.at || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            driverGuid: '',
+            driverName: c.name || 'Piloto',
+            message: rawMsg,
+          });
+        }
+        if (cleanChat.length > 0) {
+          this.chatList = cleanChat.slice(0, 60);
+        }
+      }
+
+      // Auto-guardado en disco cada 20 segundos mientras haya datos
+      const nowMs = Date.now();
+      if (nowMs - this.lastDiskSaveTime >= 20000 && this.storedTimesList.length > 0) {
+        this.lastDiskSaveTime = nowMs;
+        void this.persistCurrentSessionToDisk(data, sessionLabel, championshipName);
+      }
+
       this.emitUpdate();
-    } catch (err) {
+    } catch {
       this.state.connectedToWs = false;
-      // No saturar consola en caso de timeouts normales
     } finally {
       this.isPolling = false;
     }
