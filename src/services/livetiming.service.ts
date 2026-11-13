@@ -25,11 +25,17 @@ export interface LiveServerLog {
   id: string;
   time: string;
   timeFormatted: string;
+  agoSeconds?: number;
   type: string;
+  kind?: string;
   name: string;
   driverName: string;
   carModel: string;
+  carName?: string;
   lap: number | string;
+  cuts?: number;
+  speed?: number;
+  where?: string;
   triggeredBy: string;
   context: string;
 }
@@ -790,33 +796,75 @@ export class LiveTimingService {
         return b.numLaps - a.numLaps;
       });
 
-      // Procesar eventos de incidentes y registro
+      // Procesar eventos de incidentes, récords y registro
       if (Array.isArray(data.events)) {
         for (const ev of data.events) {
-          const evKey = `${ev.at}_${ev.kind}_${ev.name}_${ev.where || ''}_${ev.lap || ''}`;
+          const evKey = `${ev.at}_${ev.kind}_${ev.name}_${ev.where || ''}_${ev.lap || ''}_${ev.cuts || ''}`;
           if (this.processedEventKeys.has(evKey)) continue;
           this.processedEventKeys.add(evKey);
 
           const now = new Date();
-          let typeLabel = 'Incidente';
-          if (ev.kind === 'wall') typeLabel = `Impacto contra muro (${ev.where || 'Pista'})`;
-          else if (ev.kind === 'contact') typeLabel = 'Choque con otro vehículo';
-          else if (ev.kind === 'cut') typeLabel = `Corte de pista (${ev.cuts || 1} cortes)`;
-          else if (ev.kind === 'personal') typeLabel = `Mejor vuelta personal (${ev.lap || ''})`;
-          else if (ev.kind === 'join') typeLabel = 'Piloto ingresó al servidor';
-          else if (ev.kind === 'leave') typeLabel = 'Piloto salió del servidor';
+          let category = 'Incidente';
+          let typeLabel = '';
+          const driver = ev.name || 'Piloto';
+          const lapTime = ev.lap ? String(ev.lap).trim() : '';
+          const carName = ev.carName || '';
+
+          switch (ev.kind) {
+            case 'personal':
+              category = 'Mejora';
+              typeLabel = `mejora a ${lapTime}`;
+              break;
+            case 'session':
+            case 'fastest':
+              category = 'Récord';
+              typeLabel = `récord de sesión en ${lapTime}`;
+              break;
+            case 'cut': {
+              category = 'Corte';
+              const cutsCount = Number(ev.cuts ?? 1);
+              typeLabel = `vuelta ${lapTime} no cuenta: ${cutsCount} ${cutsCount === 1 ? 'corte' : 'cortes'}`;
+              break;
+            }
+            case 'wall':
+              category = 'Incidente';
+              typeLabel = `choca contra el muro${ev.speed ? ` a ${ev.speed} km/h` : ''}${ev.where ? ` en ${ev.where}` : ''}`;
+              break;
+            case 'contact':
+              category = 'Incidente';
+              typeLabel = `contacto con otro vehículo${ev.speed ? ` a ${ev.speed} km/h` : ''}`;
+              break;
+            case 'join':
+              category = 'Conexión';
+              typeLabel = 'se unió al servidor';
+              break;
+            case 'leave':
+              category = 'Conexión';
+              typeLabel = 'salió del servidor';
+              break;
+            default:
+              category = 'Evento';
+              typeLabel = ev.kind || 'evento registrado';
+              break;
+          }
 
           this.serverLogList.unshift({
             id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
             time: now.toISOString(),
             timeFormatted: ev.at || now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            type: ev.kind === 'cut' ? 'Corte' : ev.kind === 'join' || ev.kind === 'leave' ? 'Conexión' : 'Incidente',
+            agoSeconds: typeof ev.ago === 'number' ? ev.ago : 0,
+            type: category,
+            kind: ev.kind || 'unknown',
             name: typeLabel,
-            driverName: ev.name || 'Piloto',
-            carModel: ev.carName || '',
-            lap: ev.lap || 0,
+            driverName: driver,
+            carModel: carName,
+            carName,
+            lap: lapTime,
+            cuts: typeof ev.cuts === 'number' ? ev.cuts : undefined,
+            speed: typeof ev.speed === 'number' ? ev.speed : undefined,
+            where: ev.where || '',
             triggeredBy: 'Race Control',
-            context: ev.speed ? `${ev.speed} km/h` : ev.where || '',
+            context: ev.speed ? `${ev.speed} km/h` : (ev.where || ''),
           });
 
           if (ev.kind === 'wall' || ev.kind === 'contact') {
@@ -827,7 +875,7 @@ export class LiveTimingService {
               epochMs: now.getTime() - (ev.ago ? ev.ago * 1000 : 0),
               driverGuid: ev.name,
               driverName: ev.name,
-              carName: ev.carName || '',
+              carName,
               otherDriverName: '',
               type: ev.kind === 'contact' ? 'car' : 'environment',
               typeLabel,
@@ -843,8 +891,16 @@ export class LiveTimingService {
           }
         }
 
-        if (this.serverLogList.length > 80) this.serverLogList.length = 80;
-        if (this.collisionsList.length > 30) this.collisionsList.length = 30;
+        // Ordenar serverLogList por agoSeconds (menor tiempo = más reciente primero)
+        this.serverLogList.sort((a, b) => {
+          if (typeof a.agoSeconds === 'number' && typeof b.agoSeconds === 'number' && a.agoSeconds !== b.agoSeconds) {
+            return a.agoSeconds - b.agoSeconds;
+          }
+          return new Date(b.time).getTime() - new Date(a.time).getTime();
+        });
+
+        if (this.serverLogList.length > 100) this.serverLogList.length = 100;
+        if (this.collisionsList.length > 40) this.collisionsList.length = 40;
       }
 
       // Procesar y FILTRAR chat

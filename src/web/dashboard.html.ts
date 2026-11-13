@@ -1254,6 +1254,22 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       container.innerHTML = html;
     }
 
+    function formatTimeAgo(agoSeconds, isoTime) {
+      let sec = typeof agoSeconds === 'number' && agoSeconds > 0 ? agoSeconds : 0;
+      if (!sec && isoTime) {
+        const diff = Math.floor((Date.now() - new Date(isoTime).getTime()) / 1000);
+        if (diff > 0) sec = diff;
+      }
+      if (!sec || sec < 30) return 'hace un momento';
+      const mins = Math.floor(sec / 60);
+      if (mins < 60) return 'hace ' + mins + ' min';
+      const hours = Math.floor(mins / 60);
+      const remMins = mins % 60;
+      if (hours < 24) return remMins > 0 ? 'hace ' + hours + ' h ' + remMins + ' min' : 'hace ' + hours + ' h';
+      const days = Math.floor(hours / 24);
+      return 'hace ' + days + ' d';
+    }
+
     function renderServerLogs(serverLogs) {
       const container = document.getElementById('server-logs-container');
       if (!container) return;
@@ -1265,18 +1281,76 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
       let html = '';
       serverLogs.forEach(l => {
-        const isImpact = l.type === 'Incidente';
-        const isPenalty = l.type === 'Sanción';
-        const badgeColor = isImpact ? 'text-[#E3261B] bg-[#E3261B]/10 border-[#E3261B]/30' : isPenalty ? 'text-[#F2B92B] bg-[#F2B92B]/10 border-[#F2B92B]/30' : 'text-[#23B6E0] bg-[#23B6E0]/10 border-[#23B6E0]/30';
+        const kind = l.kind || '';
+        const type = l.type || '';
+
+        let dotClass = 'bg-slate-400';
+        let badgeClass = 'text-sky-400 bg-sky-500/10 border-sky-500/30';
+        let badgeText = type || 'EVENTO';
+
+        if (kind === 'personal' || type === 'Mejora') {
+          dotClass = 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]';
+          badgeClass = 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30';
+          badgeText = 'MEJORA';
+        } else if (kind === 'session' || kind === 'fastest' || type === 'Récord') {
+          dotClass = 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.5)]';
+          badgeClass = 'text-purple-300 bg-purple-500/15 border-purple-500/30';
+          badgeText = 'RÉCORD';
+        } else if (kind === 'cut' || type === 'Corte') {
+          dotClass = 'bg-amber-400';
+          badgeClass = 'text-amber-400 bg-amber-500/15 border-amber-500/30';
+          badgeText = 'CORTE';
+        } else if (kind === 'wall' || kind === 'contact' || type === 'Incidente') {
+          dotClass = 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]';
+          badgeClass = 'text-rose-400 bg-rose-500/15 border-rose-500/30';
+          badgeText = 'INCIDENTE';
+        } else if (kind === 'join' || kind === 'leave' || type === 'Conexión') {
+          dotClass = kind === 'join' ? 'bg-sky-400' : 'bg-slate-500';
+          badgeClass = 'text-sky-400 bg-sky-500/15 border-sky-500/30';
+          badgeText = 'CONEXIÓN';
+        }
+
+        let descHtml = '';
+        const driverSafe = escapeHtml(l.driverName || 'Piloto');
+        const lapSafe = escapeHtml(String(l.lap || ''));
+
+        if (kind === 'personal' || type === 'Mejora') {
+          descHtml = '<strong class="text-white font-semibold">' + driverSafe + '</strong> mejora a <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold text-xs">' + lapSafe + '</span>';
+        } else if (kind === 'session' || kind === 'fastest' || type === 'Récord') {
+          descHtml = '<strong class="text-white font-semibold">' + driverSafe + '</strong> récord de sesión en <span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-200 font-mono font-bold text-xs">' + lapSafe + '</span>';
+        } else if (kind === 'cut' || type === 'Corte') {
+          const cuts = l.cuts || 1;
+          descHtml = '<strong class="text-white font-semibold">' + driverSafe + '</strong> vuelta <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono font-bold text-xs line-through">' + lapSafe + '</span> no cuenta: ' + cuts + (cuts === 1 ? ' corte' : ' cortes');
+        } else if (kind === 'wall') {
+          const spd = l.speed ? ' a <span class="font-mono text-zinc-300">' + l.speed + ' km/h</span>' : '';
+          const whr = l.where ? ' en <span class="font-mono text-zinc-300">' + escapeHtml(l.where) + '</span>' : '';
+          descHtml = '<strong class="text-white font-semibold">' + driverSafe + '</strong> choca contra el muro' + spd + whr;
+        } else if (kind === 'contact') {
+          const spd = l.speed ? ' a <span class="font-mono text-zinc-300">' + l.speed + ' km/h</span>' : '';
+          descHtml = '<strong class="text-white font-semibold">' + driverSafe + '</strong> choque con otro auto' + spd;
+        } else if (kind === 'join') {
+          descHtml = '<strong class="text-white font-semibold">' + driverSafe + '</strong> se unió a la sesión';
+        } else if (kind === 'leave') {
+          descHtml = '<strong class="text-white font-semibold">' + driverSafe + '</strong> salió de la sesión';
+        } else {
+          descHtml = '<strong class="text-white font-semibold">' + driverSafe + '</strong> ' + escapeHtml(l.name || '');
+        }
+
+        const agoText = formatTimeAgo(l.agoSeconds, l.time);
+        const carText = l.carModel || l.carName || '';
+        const subParts = [agoText, carText].filter(Boolean).map(escapeHtml).join(' · ');
 
         html += \`
-          <div class="bg-lsa-deck border border-lsa-wire p-2.5">
-            <div class="flex items-center justify-between text-[11px] mb-1">
-              <span class="px-1.5 py-0.2 border text-[10px] font-bold font-display uppercase tracking-wider \${badgeColor}">\${escapeHtml(l.type)}</span>
-              <span class="text-slate-500 text-[10px] font-mono">\${escapeHtml(l.timeFormatted)}</span>
+          <div class="bg-lsa-deck border border-lsa-wire p-2.5 hover:border-lsa-wire/80 transition-colors">
+            <div class="flex items-center justify-between text-[11px] mb-1.5">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full shrink-0 \${dotClass}"></span>
+                <span class="px-1.5 py-0.2 border text-[9px] font-bold font-display uppercase tracking-wider rounded \${badgeClass}">\${badgeText}</span>
+              </div>
+              <span class="text-slate-500 text-[10px] font-mono">\${escapeHtml(l.timeFormatted || '')}</span>
             </div>
-            <div class="text-white font-semibold text-xs">\${escapeHtml(l.driverName ? (l.driverName + ' — ' + l.name) : l.name)}</div>
-            \${l.context ? \`<div class="text-[11px] text-lsa-mute mt-0.5 font-mono">\${escapeHtml(l.context)}</div>\` : ''}
+            <div class="text-zinc-200 text-xs pl-4 leading-relaxed">\${descHtml}</div>
+            \${subParts ? \`<div class="text-[11px] text-lsa-mute pl-4 mt-1 font-sans">\${subParts}</div>\` : ''}
           </div>
         \`;
       });
