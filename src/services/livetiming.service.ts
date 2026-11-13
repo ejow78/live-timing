@@ -419,6 +419,12 @@ export class LiveTimingService {
 
   public getState(): LiveTelemetryState {
     const drivers = Array.from(this.allPlayersByGuid.values())
+      .filter((d) => {
+        // Pilotos online siempre se muestran
+        if (d.isOnline && d.status !== 'gone') return true;
+        // Pilotos desconectados (LEFT) solo se muestran si tienen vueltas o tiempos registrados en la sesión
+        return d.numLaps > 0 || (d.bestLapMs && d.bestLapMs > 0);
+      })
       .map((d) => ({
         ...d,
         laps: this.driverLapsMap.get(d.guid) || [],
@@ -643,10 +649,30 @@ export class LiveTimingService {
       // Procesar pilotos
       const storedMap = new Map<string, StoredSessionTime>();
       const players = Array.isArray(data.players) ? data.players : [];
+      const serverClientsCount = typeof data.session?.clients === 'number' ? data.session.clients : null;
+
+      // Si el servidor reporta 0 clientes conectados en total, nos aseguramos de que nadie quede 'online'
+      if (serverClientsCount === 0) {
+        for (const d of this.allPlayersByGuid.values()) {
+          d.isOnline = false;
+          d.status = 'gone';
+          d.isInPits = false;
+        }
+      }
 
       players.forEach((p, idx) => {
-        const guid = String(p.id ?? idx);
-        const isOnline = p.status !== 'gone';
+        const rawName = (p.name || '').trim();
+        const driverName = rawName || 'Piloto';
+        const driverKey = rawName.toLowerCase() || String(p.id ?? idx);
+        const guid = driverKey;
+        const isOnline = p.status !== 'gone' && serverClientsCount !== 0;
+
+        // Limpiar cualquier entrada previa con distinta clave (por ejemplo el slot ID cuando estaba conectado)
+        for (const [oldKey, oldDriver] of this.allPlayersByGuid.entries()) {
+          if (oldKey !== driverKey && oldDriver.name.trim().toLowerCase() === rawName.toLowerCase()) {
+            this.allPlayersByGuid.delete(oldKey);
+          }
+        }
         const bestLapMs = parseLapTimeToMs(p.bestLap);
         const lastLapMs = parseLapTimeToMs(p.lastLap);
         const numLaps = Number(p.laps ?? 0);

@@ -815,7 +815,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         trackTitleEl.innerHTML = escapeHtml(titleText);
       }
 
-      document.getElementById('live-drivers-count').textContent = state.drivers ? state.drivers.length : 0;
+      document.getElementById('live-drivers-count').textContent = state.drivers ? state.drivers.filter(d => d.isOnline && d.status !== 'gone').length : 0;
       document.getElementById('live-incidents-total').textContent = state.collisions ? state.collisions.length : 0;
       
       // Hora sin segundos (ej: 20:30)
