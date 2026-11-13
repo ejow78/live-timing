@@ -52,6 +52,9 @@ export const ADMIN_HTML = `<!DOCTYPE html>
         <a href="/live" target="_blank" class="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 transition">
           <i class="fa-solid fa-satellite-dish"></i> Live Timing
         </a>
+        <a href="/api/admin/logout" class="px-2.5 py-1 text-xs bg-red-950/40 text-red-400 border border-red-800/40 hover:bg-red-900/60 rounded transition flex items-center gap-1">
+          <i class="fa-solid fa-right-from-bracket"></i> Salir
+        </a>
       </div>
     </div>
   </header>
