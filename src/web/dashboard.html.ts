@@ -1056,6 +1056,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       });
     }
 
+    function selectSessionPill(btn) {
+      if (!btn) return;
+      const id = btn.getAttribute('data-session-id');
+      if (id) switchToSession(id);
+    }
+
     function selectSessionCategory(cat) {
       currentSessionCategory = cat;
       updateSessionTabsUi();
@@ -1102,7 +1108,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           const activeClass = isSel ? 'bg-lsa-cyan/25 text-lsa-cyan border-lsa-cyan/60 font-bold' : 'bg-lsa-deck text-zinc-400 border-lsa-wire hover:text-white hover:border-zinc-500';
           const timeStr = s.savedAt ? new Date(s.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
           const displayLabel = s.sessionType + (timeStr ? (' (' + timeStr + ')') : '');
-          pillsHtml += '<button onclick="switchToSession(\'' + escapeHtml(s.id) + '\')" class="px-2.5 py-1 text-xs font-mono rounded border transition-colors ' + activeClass + '">' + escapeHtml(displayLabel) + '</button>';
+          pillsHtml += '<button data-session-id="' + escapeHtml(s.id) + '" onclick="selectSessionPill(this)" class="px-2.5 py-1 text-xs font-mono rounded border transition-colors ' + activeClass + '">' + escapeHtml(displayLabel) + '</button>';
         });
         subPills.innerHTML = pillsHtml;
       }
@@ -1130,7 +1136,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 const activeClass = isSel ? 'bg-lsa-cyan/25 text-lsa-cyan border-lsa-cyan/60 font-bold' : 'bg-lsa-deck text-zinc-400 border-lsa-wire hover:text-white hover:border-zinc-500';
                 const timeStr = s.savedAt ? new Date(s.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                 const displayLabel = s.sessionType + (timeStr ? (' (' + timeStr + ')') : '');
-                pillsHtml += '<button onclick="switchToSession(\'' + escapeHtml(s.id) + '\')" class="px-2.5 py-1 text-xs font-mono rounded border transition-colors ' + activeClass + '">' + escapeHtml(displayLabel) + '</button>';
+                pillsHtml += '<button data-session-id="' + escapeHtml(s.id) + '" onclick="selectSessionPill(this)" class="px-2.5 py-1 text-xs font-mono rounded border transition-colors ' + activeClass + '">' + escapeHtml(displayLabel) + '</button>';
               });
               subPills.innerHTML = pillsHtml;
             }
@@ -1192,7 +1198,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             const activeClass = isSel ? 'bg-lsa-cyan/25 text-lsa-cyan border-lsa-cyan/60 font-bold' : 'bg-lsa-deck text-zinc-400 border-lsa-wire hover:text-white hover:border-zinc-500';
             const timeStr = s.savedAt ? new Date(s.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
             const displayLabel = s.sessionType + (timeStr ? (' (' + timeStr + ')') : '');
-            pillsHtml += '<button onclick="switchToSession(\'' + escapeHtml(s.id) + '\')" class="px-2.5 py-1 text-xs font-mono rounded border transition-colors ' + activeClass + '">' + escapeHtml(displayLabel) + '</button>';
+            pillsHtml += '<button data-session-id="' + escapeHtml(s.id) + '" onclick="selectSessionPill(this)" class="px-2.5 py-1 text-xs font-mono rounded border transition-colors ' + activeClass + '">' + escapeHtml(displayLabel) + '</button>';
           });
           subPills.innerHTML = pillsHtml;
         }
