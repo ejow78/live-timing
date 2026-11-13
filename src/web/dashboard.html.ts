@@ -360,8 +360,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         <!-- Assetto Corsa Competizione (Lleva a la página de aviso /acc) -->
         <a href="/acc" class="flex items-center gap-2.5 text-lsa-mute hover:text-white transition-colors">
           <span class="font-display font-semibold uppercase tracking-wider text-[13.5px]">Assetto Corsa Competizione</span>
-          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-lsa-gold/15 text-lsa-gold border border-lsa-gold/30 uppercase tracking-wide">
-            Próximamente
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 uppercase tracking-wide flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            LIVE
           </span>
         </a>
       </nav>

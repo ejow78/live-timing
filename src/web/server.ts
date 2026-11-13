@@ -8,6 +8,8 @@ import { liveTimingService } from '../services/livetiming.service.js';
 import { sessionsService } from '../services/sessions.service.js';
 import { tablesService, type CustomTable } from '../services/tables.service.js';
 import { DASHBOARD_HTML, ACC_COMING_SOON_HTML } from './dashboard.html.js';
+import { ACC_DASHBOARD_HTML } from './acc-dashboard.html.js';
+import { accService } from '../services/acc.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,10 +61,18 @@ export function startWebServer(discordClient: any = null): http.Server {
         return;
       }
 
-      // 1b. Página Proximamente Assetto Corsa Competizione
+      // 1b. Portal Assetto Corsa Competizione (ACC)
       if ((req.method === 'GET' || req.method === 'HEAD') && (pathname === '/acc' || pathname === '/competizione' || pathname === '/acc/')) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(req.method === 'HEAD' ? '' : ACC_COMING_SOON_HTML);
+        res.end(req.method === 'HEAD' ? '' : ACC_DASHBOARD_HTML);
+        return;
+      }
+
+      // 1c. API Live Status Assetto Corsa Competizione (ACC)
+      if ((req.method === 'GET' || req.method === 'HEAD') && pathname === '/api/acc/live') {
+        const accState = await accService.getLiveStatus();
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(req.method === 'HEAD' ? '' : JSON.stringify(accState));
         return;
       }
 
