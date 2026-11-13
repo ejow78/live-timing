@@ -543,23 +543,38 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       <!-- COLUMNA DERECHA: TIMING Y CLASIFICACIÓN COMPLETA -->
       <div class="xl:col-span-7 flex flex-col gap-6">
 
-        <!-- SELECTOR DE SESIÓN / HISTORIAL -->
-        <div class="lsa-panel cut p-3 flex flex-wrap items-center justify-between gap-3">
-          <div class="flex items-center gap-2 overflow-x-auto py-1 max-w-full">
-            <span class="text-xs font-display italic font-bold uppercase text-lsa-mute flex items-center gap-1 shrink-0">
-              <i data-lucide="history" class="w-3.5 h-3.5 text-lsa-cyan"></i>
-              SESIONES:
-            </span>
-            <div id="sessions-pill-bar" class="flex items-center gap-1.5 shrink-0">
-              <button id="pill-live" onclick="switchToSession('live')" class="px-3 py-1 text-xs font-mono font-bold rounded flex items-center gap-1.5 bg-red-500/25 text-red-400 border border-red-500/60 shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-colors">
+        <!-- SELECTOR DE SESIÓN / HISTORIAL EN TABS -->
+        <div class="lsa-panel cut p-3 flex flex-col gap-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <!-- TABS DE SESIÓN -->
+            <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto max-w-full py-0.5">
+              <button id="tab-session-live" onclick="selectSessionCategory('live')" class="px-3.5 py-1.5 text-xs font-display italic font-bold uppercase tracking-wider flex items-center gap-2 border transition-all rounded bg-red-500/20 text-red-400 border-red-500/60 shadow-[0_0_10px_rgba(239,68,68,0.3)]">
                 <span class="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span>
                 EN VIVO
               </button>
+              <button id="tab-session-practice" onclick="selectSessionCategory('practice')" class="px-3.5 py-1.5 text-xs font-display italic font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all rounded bg-lsa-deck text-lsa-mute border-lsa-wire hover:text-white hover:border-zinc-500">
+                <i data-lucide="wrench" class="w-3.5 h-3.5 text-sky-400"></i>
+                PRÁCTICA
+              </button>
+              <button id="tab-session-qualifying" onclick="selectSessionCategory('qualifying')" class="px-3.5 py-1.5 text-xs font-display italic font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all rounded bg-lsa-deck text-lsa-mute border-lsa-wire hover:text-white hover:border-zinc-500">
+                <i data-lucide="timer" class="w-3.5 h-3.5 text-lsa-gold"></i>
+                CLASIFICACIÓN
+              </button>
+              <button id="tab-session-race" onclick="selectSessionCategory('race')" class="px-3.5 py-1.5 text-xs font-display italic font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all rounded bg-lsa-deck text-lsa-mute border-lsa-wire hover:text-white hover:border-zinc-500">
+                <i data-lucide="flag" class="w-3.5 h-3.5 text-emerald-400"></i>
+                CARRERA
+              </button>
             </div>
           </div>
-          <span id="timing-view-indicator" class="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 border border-emerald-500/30 shrink-0">
-            TRANSMISIÓN EN DIRECTO
-          </span>
+
+          <!-- SUB-SELECTOR DE SESIONES (SI HAY MÁS DE UNA GUARDADA EN LA CATEGORÍA, EJ: PRÁCTICA 1 / PRÁCTICA 2) -->
+          <div id="sub-sessions-container" class="hidden flex items-center gap-2 overflow-x-auto pt-1.5 border-t border-lsa-wire/60">
+            <span class="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1 shrink-0">
+              <i data-lucide="layers" class="w-3 h-3 text-lsa-cyan"></i>
+              Sesión:
+            </span>
+            <div id="sub-sessions-pills" class="flex items-center gap-1.5 flex-wrap"></div>
+          </div>
         </div>
 
         <!-- TABLA PRINCIPAL DE TIMING & CLASIFICACIÓN (ESTILO ASSETTO HOSTING OFICIAL) -->
@@ -574,9 +589,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
             <!-- LEYENDA OFICIAL DE COLORES -->
             <div class="flex items-center gap-3.5 text-xs text-zinc-300 font-mono">
-              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#A855F7]"></span>Fastest</span>
-              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>Personal best</span>
-              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></span>Cut</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#A855F7]"></span>Más rápida</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>Mejor personal</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></span>Corte de pista</span>
             </div>
           </div>
 
@@ -601,8 +616,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               </thead>
               <tbody id="timing-table-tbody" class="divide-y divide-lsa-wire/70 text-sm">
                 <tr>
-                  <td colspan="12" class="py-10 text-center text-lsa-mute font-mono">
-                    Cargando clasificación y parciales en vivo...
+                  <td colspan="12" class="py-12 text-center text-lsa-mute font-mono text-sm">
+                    Todavía no hay datos registrados
                   </td>
                 </tr>
               </tbody>
@@ -612,7 +627,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           <!-- FOOTER: MEJORES SECTORES DE LA SESIÓN -->
           <div class="mt-4 pt-3 border-t border-lsa-wire/70 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
             <span class="text-zinc-400">
-              BEST SECTORS · the lap's thirds, timed from the cars' progress
+              MEJORES SECTORES · Los tercios de vuelta según el progreso de los autos
             </span>
             <div class="flex items-center gap-2">
               <span class="text-zinc-500 text-[11px]">S1:</span>
@@ -992,8 +1007,105 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       }
     }
 
+    let currentSessionCategory = 'live'; // 'live' | 'practice' | 'qualifying' | 'race'
     let currentSessionView = 'live';
     let savedSessionsList = [];
+
+    function getSessionsForCategory(cat) {
+      if (!Array.isArray(savedSessionsList)) return [];
+      return savedSessionsList.filter(s => {
+        const type = (s.sessionType || '').toLowerCase();
+        const name = (s.sessionName || '').toLowerCase();
+        if (cat === 'practice') {
+          return type.includes('práctica') || type.includes('practica') || type.includes('practice') || type.includes('fp') || name.includes('fp') || name.includes('practice') || name.includes('práctica') || type.includes('booking');
+        }
+        if (cat === 'qualifying') {
+          return type.includes('clasif') || type.includes('qual') || name.includes('qual') || name.includes('clasif');
+        }
+        if (cat === 'race') {
+          return type.includes('carrera') || type.includes('race') || name.includes('race') || name.includes('carrera');
+        }
+        return false;
+      });
+    }
+
+    function updateSessionTabsUi() {
+      const tabs = {
+        live: document.getElementById('tab-session-live'),
+        practice: document.getElementById('tab-session-practice'),
+        qualifying: document.getElementById('tab-session-qualifying'),
+        race: document.getElementById('tab-session-race'),
+      };
+
+      Object.entries(tabs).forEach(([cat, el]) => {
+        if (!el) return;
+        const isActive = currentSessionCategory === cat;
+        if (cat === 'live') {
+          el.className = isActive
+            ? 'px-3.5 py-1.5 text-xs font-display italic font-bold uppercase tracking-wider flex items-center gap-2 border transition-all rounded bg-red-500/20 text-red-400 border-red-500/60 shadow-[0_0_10px_rgba(239,68,68,0.3)]'
+            : 'px-3.5 py-1.5 text-xs font-display italic font-bold uppercase tracking-wider flex items-center gap-2 border transition-all rounded bg-lsa-deck text-zinc-400 border-lsa-wire hover:text-red-400 hover:border-red-500/40';
+        } else {
+          el.className = isActive
+            ? 'px-3.5 py-1.5 text-xs font-display italic font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all rounded bg-lsa-cyan/15 text-lsa-cyan border-lsa-cyan/60 shadow-[0_0_10px_rgba(35,182,224,0.25)]'
+            : 'px-3.5 py-1.5 text-xs font-display italic font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all rounded bg-lsa-deck text-lsa-mute border-lsa-wire hover:text-white hover:border-zinc-500';
+        }
+      });
+    }
+
+    function selectSessionCategory(cat) {
+      currentSessionCategory = cat;
+      updateSessionTabsUi();
+
+      const subContainer = document.getElementById('sub-sessions-container');
+      const subPills = document.getElementById('sub-sessions-pills');
+      const tableTitle = document.getElementById('timing-table-title');
+
+      if (cat === 'live') {
+        if (subContainer) subContainer.classList.add('hidden');
+        switchToSession('live');
+        return;
+      }
+
+      const matching = getSessionsForCategory(cat);
+      const catLabels = {
+        practice: 'PRÁCTICA',
+        qualifying: 'CLASIFICACIÓN',
+        race: 'CARRERA'
+      };
+
+      if (matching.length === 0) {
+        if (subContainer) subContainer.classList.add('hidden');
+        currentSessionView = 'history_' + cat;
+        if (tableTitle) {
+          tableTitle.innerHTML = '<span class="text-lsa-gold">›</span> ' + (catLabels[cat] || 'SESIÓN') + ' · <span class="text-zinc-400 font-normal text-sm">HISTORIAL</span>';
+        }
+        renderTimingTable([], null, ['', '', '']);
+        const s1El = document.getElementById('best-sector-1');
+        const s2El = document.getElementById('best-sector-2');
+        const s3El = document.getElementById('best-sector-3');
+        if (s1El) s1El.textContent = '—';
+        if (s2El) s2El.textContent = '—';
+        if (s3El) s3El.textContent = '—';
+        return;
+      }
+
+      // Render sub-pills
+      if (subContainer && subPills) {
+        subContainer.classList.remove('hidden');
+        let pillsHtml = '';
+        matching.forEach((s, idx) => {
+          const isSel = currentSessionView === s.id || (idx === 0 && !matching.some(m => m.id === currentSessionView));
+          const activeClass = isSel ? 'bg-lsa-cyan/25 text-lsa-cyan border-lsa-cyan/60 font-bold' : 'bg-lsa-deck text-zinc-400 border-lsa-wire hover:text-white hover:border-zinc-500';
+          const timeStr = s.savedAt ? new Date(s.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+          const displayLabel = s.sessionType + (timeStr ? (' (' + timeStr + ')') : '');
+          pillsHtml += '<button onclick="switchToSession(\'' + escapeHtml(s.id) + '\')" class="px-2.5 py-1 text-xs font-mono rounded border transition-colors ' + activeClass + '">' + escapeHtml(displayLabel) + '</button>';
+        });
+        subPills.innerHTML = pillsHtml;
+      }
+
+      const targetSession = matching.find(m => m.id === currentSessionView) || matching[0];
+      switchToSession(targetSession.id);
+    }
 
     async function fetchSavedSessions() {
       try {
@@ -1002,56 +1114,53 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const list = await res.json();
         if (Array.isArray(list)) {
           savedSessionsList = list;
-          renderSessionsPillBar();
+          if (currentSessionCategory !== 'live') {
+            const matching = getSessionsForCategory(currentSessionCategory);
+            const subContainer = document.getElementById('sub-sessions-container');
+            const subPills = document.getElementById('sub-sessions-pills');
+            if (matching.length > 0 && subContainer && subPills) {
+              subContainer.classList.remove('hidden');
+              let pillsHtml = '';
+              matching.forEach(s => {
+                const isSel = currentSessionView === s.id;
+                const activeClass = isSel ? 'bg-lsa-cyan/25 text-lsa-cyan border-lsa-cyan/60 font-bold' : 'bg-lsa-deck text-zinc-400 border-lsa-wire hover:text-white hover:border-zinc-500';
+                const timeStr = s.savedAt ? new Date(s.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                const displayLabel = s.sessionType + (timeStr ? (' (' + timeStr + ')') : '');
+                pillsHtml += '<button onclick="switchToSession(\'' + escapeHtml(s.id) + '\')" class="px-2.5 py-1 text-xs font-mono rounded border transition-colors ' + activeClass + '">' + escapeHtml(displayLabel) + '</button>';
+              });
+              subPills.innerHTML = pillsHtml;
+            }
+          }
         }
       } catch (e) {
         // ignore
       }
     }
 
-    function renderSessionsPillBar() {
-      const bar = document.getElementById('sessions-pill-bar');
-      if (!bar) return;
-
-      let html = \`
-        <button id="pill-live" onclick="switchToSession('live')" class="px-3 py-1 text-xs font-mono font-bold rounded flex items-center gap-1.5 transition-colors \${currentSessionView === 'live' ? 'bg-red-500/25 text-red-400 border border-red-500/60 shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'bg-lsa-deck text-zinc-400 border border-lsa-wire hover:text-white'}">
-          <span class="w-2 h-2 rounded-full bg-red-400 \${currentSessionView === 'live' ? 'animate-pulse' : ''}"></span>
-          EN VIVO
-        </button>
-      \`;
-
-      savedSessionsList.slice(0, 10).forEach(s => {
-        const isSel = currentSessionView === s.id;
-        html += \`
-          <button onclick="switchToSession('\${escapeHtml(s.id)}')" class="px-2.5 py-1 text-xs font-mono rounded flex items-center gap-1.5 transition-colors \${isSel ? 'bg-lsa-cyan/25 text-lsa-cyan border border-lsa-cyan/60' : 'bg-lsa-deck text-zinc-400 border border-lsa-wire hover:text-white hover:border-zinc-500'}" title="\${escapeHtml(s.trackName)} · \${escapeHtml(s.savedAt)}">
-            <i data-lucide="archive" class="w-3 h-3 text-lsa-gold"></i>
-            \${escapeHtml(s.sessionType)}
-          </button>
-        \`;
-      });
-
-      bar.innerHTML = html;
-      if (window.lucide) lucide.createIcons();
-    }
-
     async function switchToSession(mode) {
       currentSessionView = mode;
-      renderSessionsPillBar();
-
-      const viewIndicator = document.getElementById('timing-view-indicator');
       const tableTitle = document.getElementById('timing-table-title');
 
       if (mode === 'live') {
-        if (viewIndicator) {
-          viewIndicator.textContent = 'TRANSMISIÓN EN DIRECTO';
-          viewIndicator.className = 'text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 border border-emerald-500/30 shrink-0';
-        }
+        currentSessionCategory = 'live';
+        updateSessionTabsUi();
+        const subContainer = document.getElementById('sub-sessions-container');
+        if (subContainer) subContainer.classList.add('hidden');
+
         if (tableTitle) {
           tableTitle.innerHTML = '<span class="text-lsa-red">›</span> CLASIFICACIÓN <span class="tri-word">EN VIVO</span>';
         }
         if (currentState) {
           const fastestLap = (currentState.drivers || []).filter(d => d.bestLapMs > 0).sort((a,b) => a.bestLapMs - b.bestLapMs)[0];
           renderTimingTable(currentState.drivers || [], fastestLap, currentState.bestSectors);
+          if (currentState.bestSectors) {
+            const s1El = document.getElementById('best-sector-1');
+            const s2El = document.getElementById('best-sector-2');
+            const s3El = document.getElementById('best-sector-3');
+            if (s1El) s1El.textContent = currentState.bestSectors[0] || '—';
+            if (s2El) s2El.textContent = currentState.bestSectors[1] || '—';
+            if (s3El) s3El.textContent = currentState.bestSectors[2] || '—';
+          }
         }
         return;
       }
@@ -1062,10 +1171,28 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const session = await res.json();
         if (!session) return;
 
-        if (viewIndicator) {
-          viewIndicator.textContent = 'HISTORIAL: ' + (session.sessionType || 'SESIÓN');
-          viewIndicator.className = 'text-[11px] font-mono text-purple-400 bg-purple-500/15 px-2.5 py-0.5 border border-purple-500/40 shrink-0';
+        const sType = (session.sessionType || '').toLowerCase();
+        if (sType.includes('clasif') || sType.includes('qual')) currentSessionCategory = 'qualifying';
+        else if (sType.includes('carrera') || sType.includes('race')) currentSessionCategory = 'race';
+        else currentSessionCategory = 'practice';
+        updateSessionTabsUi();
+
+        const matching = getSessionsForCategory(currentSessionCategory);
+        const subContainer = document.getElementById('sub-sessions-container');
+        const subPills = document.getElementById('sub-sessions-pills');
+        if (matching.length > 0 && subContainer && subPills) {
+          subContainer.classList.remove('hidden');
+          let pillsHtml = '';
+          matching.forEach(s => {
+            const isSel = currentSessionView === s.id;
+            const activeClass = isSel ? 'bg-lsa-cyan/25 text-lsa-cyan border-lsa-cyan/60 font-bold' : 'bg-lsa-deck text-zinc-400 border-lsa-wire hover:text-white hover:border-zinc-500';
+            const timeStr = s.savedAt ? new Date(s.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+            const displayLabel = s.sessionType + (timeStr ? (' (' + timeStr + ')') : '');
+            pillsHtml += '<button onclick="switchToSession(\'' + escapeHtml(s.id) + '\')" class="px-2.5 py-1 text-xs font-mono rounded border transition-colors ' + activeClass + '">' + escapeHtml(displayLabel) + '</button>';
+          });
+          subPills.innerHTML = pillsHtml;
         }
+
         if (tableTitle) {
           tableTitle.innerHTML = '<span class="text-lsa-gold">›</span> ' + escapeHtml((session.sessionType || 'SESIÓN').toUpperCase()) + ' · <span class="text-zinc-300 font-normal text-base">' + escapeHtml(session.trackName || '') + '</span>';
         }
@@ -1073,7 +1200,6 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const fastestLap = (session.drivers || []).filter(d => d.bestLapMs > 0).sort((a,b) => a.bestLapMs - b.bestLapMs)[0];
         renderTimingTable(session.drivers || [], fastestLap, session.bestSectors || ['', '', '']);
 
-        // Actualizar footer de mejores sectores para la sesión histórica
         if (session.bestSectors) {
           const s1El = document.getElementById('best-sector-1');
           const s2El = document.getElementById('best-sector-2');
@@ -1092,7 +1218,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       if (!tbody) return;
 
       if (!drivers || drivers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" class="py-10 text-center text-lsa-mute font-mono text-xs">No hay tiempos registrados en esta sesión aún.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="py-12 text-center text-lsa-mute font-mono text-sm">Todavía no hay datos registrados</td></tr>';
         return;
       }
 
