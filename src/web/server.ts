@@ -12,10 +12,7 @@ import { supabaseService, getSupabase } from '../services/supabase.service.js';
 import { telemetryParser } from '../services/telemetry-parser.service.js';
 import { DASHBOARD_HTML, ACC_COMING_SOON_HTML } from './dashboard.html.js';
 import { ADMIN_HTML } from './admin.html.js';
-import { renderHomePage } from './pages/home.page.js';
-import { renderChampionshipPage } from './pages/championship.page.js';
 import { renderRegistrationPage } from './pages/registration.page.js';
-import { renderRulesPage } from './pages/rules.page.js';
 import { renderAdminLoginPage } from './pages/login.page.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -152,10 +149,10 @@ export function startWebServer(discordClient: any = null): http.Server {
       }
 
       // ==========================================
-      // RUTAS PÚBLICAS MODULARES DE LA PLATAFORMA
+      // RUTAS PÚBLICAS (LIVE TIMING E INSCRIPCIONES)
       // ==========================================
 
-      // 1. Portada / Inicio
+      // 1. Portada / Inicio: Muestra directamente el Live Timing
       if ((req.method === 'GET' || req.method === 'HEAD') && (pathname === '/' || pathname === '/index.html')) {
         if (isAdminSubdomain) {
           if (!isAuthenticatedAdmin(req)) {
@@ -167,117 +164,28 @@ export function startWebServer(discordClient: any = null): http.Server {
           res.end(req.method === 'HEAD' ? '' : ADMIN_HTML);
           return;
         }
-        if (isLiveSubdomain) {
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(req.method === 'HEAD' ? '' : DASHBOARD_HTML);
-          return;
-        }
-
-        let standings: any[] = [];
-        let rounds: any[] = [];
-        let posts: any[] = [];
-        try {
-          [standings, rounds, posts] = await Promise.all([
-            supabaseService.getStandings('gt3-2026', 'PRO'),
-            supabaseService.getRounds('gt3-2026'),
-            supabaseService.getPosts(3),
-          ]);
-        } catch (e) {
-          console.error('Error cargando datos para la portada:', e);
-        }
 
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(req.method === 'HEAD' ? '' : renderHomePage({ standings, rounds, posts }));
+        res.end(req.method === 'HEAD' ? '' : DASHBOARD_HTML);
         return;
       }
 
-      // 2. Campeonatos (GT3 2026)
-      if ((req.method === 'GET' || req.method === 'HEAD') && (pathname === '/campeonatos' || pathname === '/campeonato-gt3-2026' || pathname === '/campeonatos/gt3-2026')) {
-        let standingsGeneral: any[] = [];
-        let standingsPro: any[] = [];
-        let standingsRookie: any[] = [];
-        let standingsMarcas: any[] = [];
-        let rounds: any[] = [];
-        try {
-          [standingsGeneral, standingsPro, standingsRookie, standingsMarcas, rounds] = await Promise.all([
-            supabaseService.getStandings('gt3-2026'),
-            supabaseService.getStandings('gt3-2026', 'PRO'),
-            supabaseService.getStandings('gt3-2026', 'Rookie'),
-            supabaseService.getStandings('gt3-2026', 'Marca'),
-            supabaseService.getRounds('gt3-2026'),
-          ]);
-        } catch (e) {
-          console.error('Error cargando datos de campeonato GT3:', e);
-        }
-
-        const html = renderChampionshipPage({
-          slug: 'gt3-2026',
-          name: 'Campeonato GT3 2026',
-          game: 'acc',
-          description: 'Campeonato oficial de Assetto Corsa Competizione con 8 fechas puntuables, grilla invertida, telemetría por sectores y comisarios deportivos.',
-          standingsGeneral,
-          standingsPro,
-          standingsRookie,
-          standingsMarcas,
-          rounds,
-        });
-
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(req.method === 'HEAD' ? '' : html);
-        return;
-      }
-
-      // 2b. Campeonato Ginetta GT4
-      if ((req.method === 'GET' || req.method === 'HEAD') && (pathname === '/campeonato-ginetta-gt4' || pathname === '/campeonatos/ginetta-gt4')) {
-        const html = renderChampionshipPage({
-          slug: 'ginetta-gt4',
-          name: 'Campeonato Ginetta GT4',
-          game: 'ac',
-          description: 'Copa monomarca en Assetto Corsa con el ágil y exigente Ginetta G55 GT4. Setup fijo donde prima el talento de conducción.',
-          standingsGeneral: [],
-          standingsPro: [],
-          standingsRookie: [],
-          standingsMarcas: [],
-          rounds: [
-            { round_number: 1, track_name: 'Vallelunga Classic', country_code: 'IT', format_desc: 'Doble Sprint', status: 'next' },
-            { round_number: 2, track_name: 'Brands Hatch Indy', country_code: 'GB', format_desc: 'Doble Sprint', status: 'upcoming' },
-            { round_number: 3, track_name: 'Imola Grand Prix', country_code: 'IT', format_desc: 'Sprint + Mini Endurance', status: 'upcoming' },
-            { round_number: 4, track_name: 'Red Bull Ring National', country_code: 'AT', format_desc: 'Doble Sprint', status: 'upcoming' }
-          ],
-        });
-
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(req.method === 'HEAD' ? '' : html);
-        return;
-      }
-
-      // 3. Inscripciones de Pilotos
+      // 2. Formulario de Inscripciones (Assetto Corsa)
       if ((req.method === 'GET' || req.method === 'HEAD') && (pathname === '/inscribirse' || pathname === '/inscripcion')) {
-        const champ = url.searchParams.get('championship') || 'gt3-2026';
+        const champ = url.searchParams.get('championship') || 'ginetta-gt4';
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(req.method === 'HEAD' ? '' : renderRegistrationPage(champ));
         return;
       }
 
-      // 4. Reglamentos
-      if ((req.method === 'GET' || req.method === 'HEAD') && (pathname === '/reglamento' || pathname === '/reglamentos')) {
-        let regulations: any[] = [];
-        try {
-          regulations = await supabaseService.getRegulations('gt3-2026');
-        } catch {}
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(req.method === 'HEAD' ? '' : renderRulesPage(regulations));
-        return;
-      }
-
-      // 5. Live Timing en Vivo
+      // 3. Live Timing en Vivo (ruta explícita)
       if ((req.method === 'GET' || req.method === 'HEAD') && (pathname === '/live' || pathname === '/live/' || pathname === '/timing')) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(req.method === 'HEAD' ? '' : DASHBOARD_HTML);
         return;
       }
 
-      // 1c. Página Proximamente Assetto Corsa Competizione
+      // 4. Página Proximamente Assetto Corsa Competizione
       if ((req.method === 'GET' || req.method === 'HEAD') && (pathname === '/acc' || pathname === '/competizione' || pathname === '/acc/')) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(req.method === 'HEAD' ? '' : ACC_COMING_SOON_HTML);
