@@ -553,7 +553,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 EN VIVO
               </button>
               <button id="tab-session-practice" onclick="selectSessionCategory('practice')" class="px-3.5 py-1.5 text-xs font-display italic font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all rounded bg-lsa-deck text-lsa-mute border-lsa-wire hover:text-white hover:border-zinc-500">
-                <i data-lucide="wrench" class="w-3.5 h-3.5 text-sky-400"></i>
+                <i data-lucide="gauge" class="w-3.5 h-3.5 text-sky-400"></i>
                 PRÁCTICA
               </button>
               <button id="tab-session-qualifying" onclick="selectSessionCategory('qualifying')" class="px-3.5 py-1.5 text-xs font-display italic font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all rounded bg-lsa-deck text-lsa-mute border-lsa-wire hover:text-white hover:border-zinc-500">
