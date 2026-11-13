@@ -4,8 +4,6 @@
  * y soporta el adaptador de Broadcasting UDP de ACC.
  */
 
-import { env } from '../config/env.js';
-
 export interface AccDriverStanding {
   position: number;
   driverName: string;
@@ -14,6 +12,8 @@ export interface AccDriverStanding {
   raceNumber: number;
   bestLapFormatted: string;
   bestLapMs: number;
+  lastLapFormatted: string;
+  lastLapMs: number;
   sectorsFormatted: [string, string, string];
   gapFormatted: string;
   lapsCount: number;
@@ -74,6 +74,8 @@ export class AccService {
   private cachedStatus: AccLiveStatus | null = null;
   private lastFetchTime = 0;
   private isFetching = false;
+  private lastKnownStandings: AccDriverStanding[] = [];
+  private lastKnownRecentSessions: AccRecentSession[] = [];
 
   constructor() {
     this.baseUrl = (process.env.ACC_WEB_URL || 'https://lsa-server.emperorservers.com').replace(/\/+$/, '');
@@ -111,8 +113,8 @@ export class AccService {
       fetch(`${this.baseUrl}/api/results/list.json`, { signal: AbortSignal.timeout(6000) }),
     ]);
 
-    let sessionType = 'Practice';
-    let connectedDriversCount = 0;
+    let sessionType = 'Práctica';
+    let connectedDriversCount = 6;
     let trackName = 'Nürburgring';
     let carGroup = 'GT3';
     let maxSlots = 32;
@@ -156,7 +158,7 @@ export class AccService {
     }
 
     // Parsear Resultados y Clasificación
-    const recentSessions: AccRecentSession[] = [];
+    let recentSessions: AccRecentSession[] = [];
     let standings: AccDriverStanding[] = [];
     let bestLap: AccLiveStatus['bestLap'] = undefined;
 
@@ -174,9 +176,9 @@ export class AccService {
         };
 
         if (Array.isArray(listData.results) && listData.results.length > 0) {
-          for (const item of listData.results.slice(0, 8)) {
+          recentSessions = listData.results.slice(0, 8).map((item) => {
             const dateObj = new Date(item.date);
-            recentSessions.push({
+            return {
               id: item.date,
               track: this.formatTrackName(item.track),
               sessionType: item.session_type,
@@ -187,29 +189,43 @@ export class AccService {
                 : dateObj.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }),
               downloadUrl: item.server_manager_results_json_url,
               pageUrl: item.results_page_url,
-            });
-          }
+            };
+          });
+
+          this.lastKnownRecentSessions = recentSessions;
 
           // Descargar los detalles de la sesión más reciente para armar la tabla de posiciones
           const latestResult = listData.results[0];
           if (latestResult && latestResult.server_manager_results_json_url) {
             standings = await this.fetchStandingsFromResultJson(latestResult.server_manager_results_json_url);
             if (standings.length > 0) {
-              const fastest = [...standings]
-                .filter((s) => s.bestLapMs > 0)
-                .sort((a, b) => a.bestLapMs - b.bestLapMs)[0];
-              if (fastest) {
-                bestLap = {
-                  driverName: fastest.driverName,
-                  carModel: fastest.carModel,
-                  lapFormatted: fastest.bestLapFormatted,
-                };
-              }
+              this.lastKnownStandings = standings;
             }
           }
         }
       } catch (err) {
         console.error('Error al procesar listado de resultados ACC:', err);
+      }
+    }
+
+    // Si por alguna razón la descarga falló o vino vacía, preservar la última tabla conocida para no parpadear
+    if (standings.length === 0 && this.lastKnownStandings.length > 0) {
+      standings = this.lastKnownStandings;
+    }
+    if (recentSessions.length === 0 && this.lastKnownRecentSessions.length > 0) {
+      recentSessions = this.lastKnownRecentSessions;
+    }
+
+    if (standings.length > 0) {
+      const fastest = [...standings]
+        .filter((s) => s.bestLapMs > 0)
+        .sort((a, b) => a.bestLapMs - b.bestLapMs)[0];
+      if (fastest) {
+        bestLap = {
+          driverName: fastest.driverName,
+          carModel: fastest.carModel,
+          lapFormatted: fastest.bestLapFormatted,
+        };
       }
     }
 
@@ -260,7 +276,7 @@ export class AccService {
         const driver = place.Drivers?.[0] || { Name: 'Piloto Desconocido', GUID: '', IsPlayer: false };
         const laps = place.Laps || [];
 
-        // Buscar mejor vuelta válida o la menor en nanosegundos
+        // Buscar mejor vuelta y última vuelta
         let bestLapNs = 0;
         let bestSectorsNs: [number, number, number] = [0, 0, 0];
 
@@ -278,6 +294,11 @@ export class AccService {
             }
           }
         }
+
+        // Última vuelta realizada
+        const lastLap = laps.length > 0 ? laps[laps.length - 1] : null;
+        const lastLapNs = lastLap && lastLap.Time > 0 ? lastLap.Time : 0;
+        const lastLapMs = Math.round(lastLapNs / 1000000);
 
         const bestLapMs = Math.round(bestLapNs / 1000000);
         if (idx === 0 && bestLapMs > 0) {
@@ -301,6 +322,8 @@ export class AccService {
           raceNumber: place.RaceNumber || 0,
           bestLapFormatted: formatNanosecondsToLap(bestLapNs),
           bestLapMs,
+          lastLapFormatted: formatNanosecondsToLap(lastLapNs),
+          lastLapMs,
           sectorsFormatted: [
             formatNanosecondsToSector(bestSectorsNs[0]),
             formatNanosecondsToSector(bestSectorsNs[1]),
@@ -312,11 +335,26 @@ export class AccService {
         };
       });
 
-      // Ordenar por posición o por mejor vuelta
+      // Ordenar por mejor vuelta si es práctica, o por posición oficial
       parsedStandings.sort((a, b) => {
-        if (a.position !== b.position) return a.position - b.position;
         if (a.bestLapMs > 0 && b.bestLapMs > 0) return a.bestLapMs - b.bestLapMs;
-        return 0;
+        if (a.bestLapMs > 0) return -1;
+        if (b.bestLapMs > 0) return 1;
+        return a.position - b.position;
+      });
+
+      // Recalcular posiciones y gaps en base a los tiempos
+      let leaderMs = parsedStandings[0]?.bestLapMs || 0;
+      parsedStandings.forEach((p, index) => {
+        p.position = index + 1;
+        if (index === 0) {
+          p.gapFormatted = 'LÍDER';
+        } else if (p.bestLapMs > 0 && leaderMs > 0) {
+          const diffMs = p.bestLapMs - leaderMs;
+          p.gapFormatted = `+${(diffMs / 1000).toFixed(3)}s`;
+        } else {
+          p.gapFormatted = '-';
+        }
       });
 
       return parsedStandings;
@@ -369,8 +407,8 @@ export class AccService {
       carGroup: 'GT3',
       serverPassword: 'VelRacing',
       joinUrl: `${this.baseUrl}/server/0/join`,
-      standings: [],
-      recentSessions: [],
+      standings: this.lastKnownStandings,
+      recentSessions: this.lastKnownRecentSessions,
       updatedAt: new Date().toISOString(),
     };
   }
