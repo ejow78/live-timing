@@ -178,26 +178,6 @@ export const ACC_DASHBOARD_HTML = `<!DOCTYPE html>
     .table-row-hover:hover {
       background: rgba(35, 182, 224, 0.05);
     }
-
-    /* SVG Track Map Styling */
-    .track-svg-circuit {
-      stroke: #23B6E0;
-      stroke-width: 14;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      fill: none;
-      filter: drop-shadow(0 0 12px rgba(35, 182, 224, 0.6));
-    }
-    .track-svg-outline {
-      stroke: rgba(255, 255, 255, 0.15);
-      stroke-width: 24;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      fill: none;
-    }
-    .driver-pin {
-      transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between selection:bg-lsa-cyan selection:text-slate-950">
@@ -308,91 +288,43 @@ export const ACC_DASHBOARD_HTML = `<!DOCTYPE html>
     <!-- CONTENIDO PRINCIPAL: MAPA EN VIVO Y TABLA DE TIEMPOS -->
     <main class="max-w-[1720px] mx-auto px-4 sm:px-6 py-4 space-y-6">
 
-      <!-- GRILLA SUPERIOR: RÉCORD + MAPA DE CIRCUITO CON PILOTOS -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        <!-- RÉCORD DE LA SESIÓN -->
-        <div class="lg:col-span-4 flex flex-col justify-between lsa-panel cut p-5 border border-lsa-wire bg-gradient-to-br from-lsa-deck to-lsa-deck2">
-          <div class="space-y-4">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2 text-xs font-display uppercase tracking-wider text-lsa-gold font-bold">
-                <i data-lucide="zap" class="w-4 h-4"></i>
-                <span>Vuelta Rápida en Pista</span>
-              </div>
-              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-lsa-gold/15 text-lsa-gold border border-lsa-gold/30">LÍDER</span>
-            </div>
-
-            <div>
-              <div id="best-lap-time" class="font-mono font-bold text-3xl sm:text-4xl text-white tracking-tight">1:56.702</div>
-              <div id="best-lap-driver" class="font-display font-bold text-lg sm:text-xl text-lsa-cyan mt-1">Carlos Lopez [LSA]</div>
-              <div id="best-lap-car" class="text-xs text-lsa-mute font-mono mt-0.5">Ferrari 296 GT3 • #78</div>
-            </div>
+      <!-- TARJETA PANORÁMICA DE VUELTA RÁPIDA DE LA SESIÓN -->
+      <div id="best-lap-card" class="lsa-panel cut p-5 border border-lsa-wire bg-gradient-to-r from-lsa-deck via-lsa-deck2 to-lsa-deck shadow-xl flex flex-wrap items-center justify-between gap-6">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full bg-lsa-gold/15 border border-lsa-gold/30 flex items-center justify-center text-lsa-gold shrink-0">
+            <i data-lucide="zap" class="w-6 h-6"></i>
           </div>
-
-          <div class="pt-6 border-t border-lsa-wire/80 mt-6 grid grid-cols-3 gap-2 text-center text-xs">
-            <div class="p-2 rounded bg-lsa-night border border-lsa-wire/60">
-              <span class="text-lsa-mute text-[10px] block font-mono">SECTOR 1</span>
-              <span id="best-lap-s1" class="font-mono font-bold text-slate-200">55.810</span>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-display uppercase tracking-wider text-lsa-gold font-bold">Vuelta Rápida de la Sesión</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-lsa-gold/15 text-lsa-gold border border-lsa-gold/30">RÉCORD</span>
             </div>
-            <div class="p-2 rounded bg-lsa-night border border-lsa-wire/60">
-              <span class="text-lsa-mute text-[10px] block font-mono">SECTOR 2</span>
-              <span id="best-lap-s2" class="font-mono font-bold text-slate-200">43.397</span>
-            </div>
-            <div class="p-2 rounded bg-lsa-night border border-lsa-wire/60">
-              <span class="text-lsa-mute text-[10px] block font-mono">SECTOR 3</span>
-              <span id="best-lap-s3" class="font-mono font-bold text-slate-200">17.495</span>
+            <div class="flex items-center gap-3 mt-1 flex-wrap">
+              <span id="best-lap-driver" class="font-display font-bold text-xl sm:text-2xl text-white">Carlos Lopez [LSA]</span>
+              <span id="best-lap-car" class="text-xs px-2.5 py-1 rounded bg-lsa-night border border-lsa-wire text-lsa-mute font-mono">Ferrari 296 GT3 • #78</span>
             </div>
           </div>
         </div>
 
-        <!-- MAPA OFICIAL DEL CIRCUITO CON POSICIONAMIENTO DE PILOTOS -->
-        <div class="lg:col-span-8 lsa-panel cut p-5 border border-lsa-wire relative overflow-hidden">
-          <div class="flex items-center justify-between border-b border-lsa-wire pb-3 mb-3">
-            <div class="flex items-center gap-3">
-              <i data-lucide="map" class="w-5 h-5 text-lsa-cyan"></i>
-              <div>
-                <h3 class="font-display font-bold text-base text-white uppercase tracking-wider">
-                  Trazado de Circuito & Monitoreo de Pista
-                </h3>
-                <span class="text-xs text-lsa-mute">Nürburgring Grand Prix-Strecke (5.148 km • 16 Curvas)</span>
-              </div>
+        <div class="flex items-center gap-6">
+          <div class="hidden sm:grid grid-cols-3 gap-2 text-center text-xs">
+            <div class="px-3 py-1.5 rounded bg-lsa-night border border-lsa-wire/60">
+              <span class="text-lsa-mute text-[10px] block font-mono">SECTOR 1</span>
+              <span id="best-lap-s1" class="font-mono font-bold text-[#23B6E0]">55.810</span>
             </div>
-
-            <div class="flex items-center gap-2 text-[11px] font-mono">
-              <span class="inline-flex items-center gap-1 text-[#23B6E0]"><span class="w-2 h-2 rounded-full bg-[#23B6E0]"></span> S1</span>
-              <span class="inline-flex items-center gap-1 text-[#F2B92B]"><span class="w-2 h-2 rounded-full bg-[#F2B92B]"></span> S2</span>
-              <span class="inline-flex items-center gap-1 text-[#E3261B]"><span class="w-2 h-2 rounded-full bg-[#E3261B]"></span> S3</span>
+            <div class="px-3 py-1.5 rounded bg-lsa-night border border-lsa-wire/60">
+              <span class="text-lsa-mute text-[10px] block font-mono">SECTOR 2</span>
+              <span id="best-lap-s2" class="font-mono font-bold text-[#F2B92B]">43.397</span>
+            </div>
+            <div class="px-3 py-1.5 rounded bg-lsa-night border border-lsa-wire/60">
+              <span class="text-lsa-mute text-[10px] block font-mono">SECTOR 3</span>
+              <span id="best-lap-s3" class="font-mono font-bold text-[#E3261B]">17.495</span>
             </div>
           </div>
 
-          <!-- CONTENEDOR DEL MAPA VECTORIAL CON PILOTOS -->
-          <div class="relative w-full h-[260px] sm:h-[300px] flex items-center justify-center bg-[#070C16] rounded border border-lsa-wire/60 overflow-hidden">
-            <!-- Circuito Vectorial SVG Nürburgring GP -->
-            <svg id="track-svg" viewBox="0 0 1000 600" class="w-full h-full p-4">
-              <!-- Glow exterior del circuito -->
-              <path class="track-svg-outline" d="M 180,480 L 720,480 C 820,480 880,440 880,360 C 880,300 840,260 760,260 L 660,260 C 600,260 560,220 580,160 C 590,130 630,110 680,120 C 730,130 750,160 740,200 L 720,240 C 700,270 730,300 780,290 C 830,280 860,240 850,180 C 830,90 720,60 620,70 C 520,80 470,140 440,200 L 380,320 C 350,380 290,400 220,380 C 150,360 120,310 140,240 C 160,180 230,160 300,180 L 420,220 C 460,230 480,210 470,180 C 450,130 380,100 290,110 C 170,120 90,210 80,330 C 70,430 110,480 180,480 Z" />
-
-              <!-- Trazado del Circuito con Sectores -->
-              <path class="track-svg-circuit" d="M 180,480 L 720,480 C 820,480 880,440 880,360 C 880,300 840,260 760,260 L 660,260 C 600,260 560,220 580,160 C 590,130 630,110 680,120 C 730,130 750,160 740,200 L 720,240 C 700,270 730,300 780,290 C 830,280 860,240 850,180 C 830,90 720,60 620,70 C 520,80 470,140 440,200 L 380,320 C 350,380 290,400 220,380 C 150,360 120,310 140,240 C 160,180 230,160 300,180 L 420,220 C 460,230 480,210 470,180 C 450,130 380,100 290,110 C 170,120 90,210 80,330 C 70,430 110,480 180,480 Z" />
-
-              <!-- Línea de Largada / Meta -->
-              <line x1="450" y1="465" x2="450" y2="495" stroke="#FFFFFF" stroke-width="4" stroke-dasharray="3,3" />
-              <text x="450" y="525" fill="#8D9AB0" font-family="'JetBrains Mono', monospace" font-size="14" text-anchor="middle">START / FINISH</text>
-
-              <!-- Curvas características -->
-              <text x="895" y="400" fill="#8D9AB0" font-family="'Chakra Petch', sans-serif" font-size="13">Castrol-S (T1)</text>
-              <text x="700" y="95" fill="#8D9AB0" font-family="'Chakra Petch', sans-serif" font-size="13">Mercedes Arena (T3)</text>
-              <text x="430" y="170" fill="#8D9AB0" font-family="'Chakra Petch', sans-serif" font-size="13">Dunlop Kehre (T7)</text>
-              <text x="180" y="415" fill="#8D9AB0" font-family="'Chakra Petch', sans-serif" font-size="13">Veedol Chicane (T13)</text>
-
-              <!-- GRUPO DINÁMICO DE PINES DE PILOTOS EN PISTA -->
-              <g id="drivers-map-pins"></g>
-            </svg>
-
-            <!-- Leyenda flotante -->
-            <div class="absolute bottom-2 right-3 text-[11px] font-mono text-lsa-mute bg-black/70 px-2 py-1 rounded backdrop-blur border border-lsa-wire">
-              Posición estimada de pilotos en pista
-            </div>
+          <div class="text-right pl-4 sm:border-l border-lsa-wire">
+            <span class="text-[11px] font-display uppercase tracking-wider text-lsa-mute block">Tiempo de Vuelta</span>
+            <div id="best-lap-time" class="font-mono font-bold text-2xl sm:text-4xl text-lsa-gold tracking-tight">1:56.702</div>
           </div>
         </div>
       </div>
@@ -540,22 +472,6 @@ export const ACC_DASHBOARD_HTML = `<!DOCTYPE html>
   </div>
 
   <script>
-    // Puntos fijos de referencia en el SVG del Nürburgring GP para posicionar a los pilotos
-    const TRACK_POINTS = [
-      { x: 450, y: 480 }, // Recta principal / Meta
-      { x: 620, y: 480 }, // Entrada Castrol
-      { x: 800, y: 460 }, // Curva 1
-      { x: 870, y: 380 }, // Castrol-S
-      { x: 800, y: 260 }, // Hacia Mercedes Arena
-      { x: 660, y: 140 }, // Mercedes Arena loop
-      { x: 740, y: 200 }, // Salida Mercedes
-      { x: 820, y: 260 }, // Hacia Dunlop
-      { x: 580, y: 160 }, // Curva 5
-      { x: 420, y: 220 }, // Dunlop Kehre
-      { x: 300, y: 180 }, // Schumacher-S
-      { x: 180, y: 380 }, // Veedol Chicane
-    ];
-
     function openJoinModal() {
       document.getElementById('join-modal').classList.remove('hidden');
     }
@@ -599,7 +515,6 @@ export const ACC_DASHBOARD_HTML = `<!DOCTYPE html>
         if (newStandingsJson !== currentStandingsJson && Array.isArray(data.standings) && data.standings.length > 0) {
           currentStandingsJson = newStandingsJson;
           renderStandingsTable(data.standings);
-          renderMapDriverPins(data.standings);
         }
 
         // 4. Renderizar Sesiones Recientes
@@ -644,38 +559,6 @@ export const ACC_DASHBOARD_HTML = `<!DOCTYPE html>
             <td class="py-3 px-4 text-right text-xs \${gapColor}">\${row.gapFormatted}</td>
             <td class="py-3 px-4 text-center font-mono text-xs text-lsa-mute">\${row.lapsCount}</td>
           </tr>
-        \`;
-      }).join('');
-    }
-
-    function renderMapDriverPins(standings) {
-      const pinsGroup = document.getElementById('drivers-map-pins');
-      if (!pinsGroup) return;
-
-      const colors = ['#F2B92B', '#E8EEF7', '#CD7F32', '#23B6E0', '#A855F7', '#10B981', '#EC4899', '#3B82F6'];
-
-      pinsGroup.innerHTML = standings.map((driver, idx) => {
-        const point = TRACK_POINTS[idx % TRACK_POINTS.length] || { x: 500, y: 300 };
-        const color = colors[idx % colors.length];
-        const num = driver.raceNumber || driver.position;
-
-        return \`
-          <g class="driver-pin" transform="translate(\${point.x}, \${point.y})">
-            <!-- Pulso exterior -->
-            <circle r="16" fill="\${color}" opacity="0.25">
-              <animate attributeName="r" values="14;22;14" dur="2s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.3;0;0.3" dur="2s" repeatCount="indefinite" />
-            </circle>
-            <!-- Punto central del auto -->
-            <circle r="11" fill="#0C1322" stroke="\${color}" stroke-width="3" />
-            <!-- Número del piloto -->
-            <text text-anchor="middle" dy="4" fill="#FFFFFF" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="bold">\${num}</text>
-            <!-- Cartel con nombre del piloto -->
-            <g transform="translate(0, -18)">
-              <rect x="-40" y="-14" width="80" height="15" rx="3" fill="rgba(6,10,19,0.85)" stroke="\${color}" stroke-width="1" />
-              <text text-anchor="middle" dy="-3" fill="#E8EEF7" font-family="'Chakra Petch', sans-serif" font-size="9" font-weight="600">\${escapeHtml(driver.driverName.slice(0, 10))}</text>
-            </g>
-          </g>
         \`;
       }).join('');
     }
