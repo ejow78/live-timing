@@ -150,11 +150,36 @@ export class TelemetryParserService {
 
   private parseAcResult(data: any): ParsedSessionResult {
     const rawResults = data.Result || [];
-    const trackName = data.TrackName || 'Pista Assetto Corsa';
+    const rawLaps = data.Laps || [];
+    const trackName = data.TrackName ? this.formatTrackName(data.TrackName, data.TrackConfig) : 'Assetto Corsa';
     const sessionType = (data.Type?.toUpperCase().includes('RACE') ? 'RACE' : 'QUALIFY') as any;
 
     let bestOverallLapMs = Infinity;
+    let bestOverallS1Ms = Infinity;
+    let bestOverallS2Ms = Infinity;
+    let bestOverallS3Ms = Infinity;
     let vrDriverIndex = -1;
+
+    // Mapa de mejores sectores por piloto desde laps
+    const driverBestSplits: Record<string, number[]> = {};
+    rawLaps.forEach((lap: any) => {
+      const driver = lap.DriverName || '';
+      if (!driver) return;
+      if (!driverBestSplits[driver]) driverBestSplits[driver] = [Infinity, Infinity, Infinity];
+      const sectors = lap.Sectors || [];
+      if (sectors[0] && sectors[0] > 0 && sectors[0] < driverBestSplits[driver][0]) {
+        driverBestSplits[driver][0] = sectors[0];
+        if (sectors[0] < bestOverallS1Ms) bestOverallS1Ms = sectors[0];
+      }
+      if (sectors[1] && sectors[1] > 0 && sectors[1] < driverBestSplits[driver][1]) {
+        driverBestSplits[driver][1] = sectors[1];
+        if (sectors[1] < bestOverallS2Ms) bestOverallS2Ms = sectors[1];
+      }
+      if (sectors[2] && sectors[2] > 0 && sectors[2] < driverBestSplits[driver][2]) {
+        driverBestSplits[driver][2] = sectors[2];
+        if (sectors[2] < bestOverallS3Ms) bestOverallS3Ms = sectors[2];
+      }
+    });
 
     rawResults.forEach((r: any, idx: number) => {
       const bestLap = r.BestLap || 0;
@@ -166,14 +191,17 @@ export class TelemetryParserService {
 
     const results: ParsedDriverResult[] = rawResults.map((r: any, index: number) => {
       const driverName = r.DriverName || 'Piloto desconocido';
-      const carName = this.formatCarName(r.CarModel || 'Auto AC');
+      const carName = this.formatCarName(r.CarModel || 'Ginetta G55 GT4');
       const bestLapMs = r.BestLap || 0;
       const isVR = index === vrDriverIndex && bestLapMs > 0;
+      const splits = driverBestSplits[driverName] || [0, 0, 0];
 
       let points = 0;
       if (sessionType === 'RACE') {
         points = LSA_POINTS_SCALE[index] || (index < 25 ? 1 : 0);
         if (isVR) points += 2;
+      } else if (sessionType === 'QUALIFY' && index === 0) {
+        points = 2; // Pole position
       }
 
       return {
@@ -184,9 +212,12 @@ export class TelemetryParserService {
         category: 'PRO',
         bestLap: formatMsToLaptime(bestLapMs),
         bestLapMs,
-        s1: '--.---',
-        s2: '--.---',
-        s3: '--.---',
+        s1: formatMsToSector(splits[0]),
+        s2: formatMsToSector(splits[1]),
+        s3: formatMsToSector(splits[2]),
+        isPurpleS1: splits[0] > 0 && splits[0] <= bestOverallS1Ms,
+        isPurpleS2: splits[1] > 0 && splits[1] <= bestOverallS2Ms,
+        isPurpleS3: splits[2] > 0 && splits[2] <= bestOverallS3Ms,
         isVR,
         points,
       };
@@ -197,11 +228,17 @@ export class TelemetryParserService {
       trackName,
       sessionType,
       bestLapOverall: formatMsToLaptime(bestOverallLapMs),
-      bestS1Overall: '--.---',
-      bestS2Overall: '--.---',
-      bestS3Overall: '--.---',
+      bestS1Overall: formatMsToSector(bestOverallS1Ms),
+      bestS2Overall: formatMsToSector(bestOverallS2Ms),
+      bestS3Overall: formatMsToSector(bestOverallS3Ms),
       results,
     };
+  }
+
+  private formatTrackName(track: string, config?: string): string {
+    const clean = track.replace(/^ks_/, '').replace(/_/g, ' ');
+    const title = clean.charAt(0).toUpperCase() + clean.slice(1);
+    return config ? `${title} (${config})` : title;
   }
 
   private parseGenericResult(data: any): ParsedSessionResult {

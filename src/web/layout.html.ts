@@ -22,7 +22,13 @@ export function renderLayout(content: string, options: { title?: string; activeN
   <header class="site">
     <div class="in">
       <a href="/" class="logo">
-        <img src="/logo.png" alt="LATAM Simracing Alliance" class="logo-img">
+        <img
+          src="https://latamsimracing.com/wp-content/uploads/2026/10/lsa-logo-horizontal.jpg"
+          alt="Latam Simracing Alliance"
+          class="logo-img"
+          style="height: 44px; width: auto; mix-blend-mode: lighten; object-fit: contain;"
+          onerror="this.src='/logo.png'"
+        >
       </a>
 
       <!-- NAVEGACIÓN PRINCIPAL -->
@@ -101,7 +107,13 @@ export function renderLayout(content: string, options: { title?: string; activeN
   <footer class="lsfoot">
     <div class="wrap">
       <div style="display:flex;align-items:center;gap:16px;">
-        <img src="/logo.png" alt="LSA" class="logo-img" style="height:32px;">
+        <img
+          src="https://latamsimracing.com/wp-content/uploads/2026/10/lsa-logo-horizontal.jpg"
+          alt="LSA"
+          class="logo-img"
+          style="height:34px;width:auto;mix-blend-mode:lighten;object-fit:contain;"
+          onerror="this.src='/logo.png'"
+        >
         <span style="font-size:13px;color:var(--mute);">
           Latam Simracing Alliance · Campeonatos de simracing de Latinoamérica
         </span>

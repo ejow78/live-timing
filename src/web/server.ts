@@ -79,28 +79,49 @@ export function startWebServer(discordClient: any = null): http.Server {
       // Procesar Login de Admin
       if (req.method === 'POST' && pathname === '/api/admin/login') {
         const raw = await readRawBody(req);
+        let username = '';
         let password = '';
         if (req.headers['content-type']?.includes('application/json')) {
           try {
             const parsed = JSON.parse(raw);
-            password = parsed.password;
+            username = parsed.username || '';
+            password = parsed.password || '';
           } catch {}
         } else {
           const params = new URLSearchParams(raw);
+          username = params.get('username') || '';
           password = params.get('password') || '';
         }
+
+        const userNames: Record<string, string> = {
+          javi: 'Javier Weimann',
+          'javier.weimann': 'Javier Weimann',
+          alonso: 'Alonso Cabezas',
+          'alonso.cabezas': 'Alonso Cabezas',
+          felipe: 'Felipe Olivares',
+          'felipe.olivares': 'Felipe Olivares',
+          tiojota: 'El Tío Jota',
+          jota: 'El Tío Jota',
+          benjamin: 'Benjamín Braun',
+          'benjamin.braun': 'Benjamín Braun',
+        };
+
+        const displayName = userNames[username.toLowerCase().trim()] || 'Staff LSA';
 
         if (password === env.ADMIN_PASSWORD) {
           const token = getAdminAuthToken();
           res.writeHead(302, {
             Location: '/admin',
-            'Set-Cookie': `lsa_auth=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`,
+            'Set-Cookie': [
+              `lsa_auth=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`,
+              `lsa_user=${encodeURIComponent(displayName)}; Path=/; SameSite=Lax; Max-Age=2592000`,
+            ],
           });
           res.end();
           return;
         } else {
           res.writeHead(401, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(renderAdminLoginPage('Contraseña de administrador incorrecta.'));
+          res.end(renderAdminLoginPage('Contraseña incorrecta.'));
           return;
         }
       }
@@ -109,7 +130,10 @@ export function startWebServer(discordClient: any = null): http.Server {
       if (req.method === 'GET' && (pathname === '/api/admin/logout' || pathname === '/admin/logout')) {
         res.writeHead(302, {
           Location: '/admin/login',
-          'Set-Cookie': 'lsa_auth=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+          'Set-Cookie': [
+            'lsa_auth=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+            'lsa_user=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+          ],
         });
         res.end();
         return;
