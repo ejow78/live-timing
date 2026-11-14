@@ -360,9 +360,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         <!-- Assetto Corsa Competizione (Lleva a la página de aviso /acc) -->
         <a href="/acc" class="flex items-center gap-2.5 text-lsa-mute hover:text-white transition-colors">
           <span class="font-display font-semibold uppercase tracking-wider text-[13.5px]">Assetto Corsa Competizione</span>
-          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 uppercase tracking-wide flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            LIVE
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-lsa-gold/15 text-lsa-gold border border-lsa-gold/30 uppercase tracking-wide">
+            Próximamente
           </span>
         </a>
       </nav>
@@ -1310,6 +1309,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           ? \`<span class="text-amber-400 font-bold">\${hitsCount}</span>\`
           : '<span class="text-zinc-600">—</span>';
 
+        // Vueltas (en vivo d.laps es un array de vueltas y d.numLaps el total; en sesiones guardadas d.laps es número)
+        const lapsCount = typeof d.numLaps === 'number'
+          ? d.numLaps
+          : (typeof d.laps === 'number' ? d.laps : (Array.isArray(d.laps) ? d.laps.length : 0));
+
         html += \`
           <tr class="hover:bg-white/[0.03] transition-colors border-b border-lsa-wire/40">
             <td class="py-2.5 px-2 text-center whitespace-nowrap">
@@ -1328,7 +1332,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               </div>
             </td>
             <td class="py-2.5 px-2 text-right font-mono text-xs text-zinc-300 whitespace-nowrap">
-              \${d.laps ?? d.numLaps ?? 0}
+              \${lapsCount}
             </td>
             <td class="py-2.5 px-2 text-right whitespace-nowrap">
               \${bestHtml}

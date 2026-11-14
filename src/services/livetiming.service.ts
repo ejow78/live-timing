@@ -650,6 +650,7 @@ export class LiveTimingService {
       const storedMap = new Map<string, StoredSessionTime>();
       const players = Array.isArray(data.players) ? data.players : [];
       const serverClientsCount = typeof data.session?.clients === 'number' ? data.session.clients : null;
+      const seenGuids = new Set<string>();
 
       // Si el servidor reporta 0 clientes conectados en total, nos aseguramos de que nadie quede 'online'
       if (serverClientsCount === 0) {
@@ -665,6 +666,7 @@ export class LiveTimingService {
         const driverName = rawName || 'Piloto';
         const driverKey = rawName.toLowerCase() || String(p.id ?? idx);
         const guid = driverKey;
+        seenGuids.add(guid);
         const isOnline = p.status !== 'gone' && serverClientsCount !== 0;
 
         // Limpiar cualquier entrada previa con distinta clave (por ejemplo el slot ID cuando estaba conectado)
@@ -814,6 +816,77 @@ export class LiveTimingService {
           });
         }
       });
+
+      // Marcar como desconectados (LEFT) a los pilotos que ya no vienen en data.players
+      for (const [guid, d] of this.allPlayersByGuid.entries()) {
+        if (!seenGuids.has(guid)) {
+          d.isOnline = false;
+          d.status = 'gone';
+          d.isInPits = false;
+          d.speedKmh = 0;
+        }
+      }
+
+      // Recalcular posiciones, gaps e intervals de forma consistente (evita posiciones duplicadas o gaps congelados de pilotos LEFT)
+      const isRaceSession = sessionLabel.toLowerCase().includes('carrera') || sessionLabel.toLowerCase().includes('race');
+      const visibleDrivers = Array.from(this.allPlayersByGuid.values()).filter(
+        (d) => (d.isOnline && d.status !== 'gone') || d.numLaps > 0 || d.bestLapMs > 0,
+      );
+
+      if (isRaceSession) {
+        visibleDrivers.sort((a, b) => {
+          const aSeen = seenGuids.has(a.guid) ? 0 : 1;
+          const bSeen = seenGuids.has(b.guid) ? 0 : 1;
+          if (aSeen !== bSeen) return aSeen - bSeen;
+          if (aSeen === 0 && a.position !== b.position) return (a.position || 999) - (b.position || 999);
+          if (b.numLaps !== a.numLaps) return b.numLaps - a.numLaps;
+          if (a.bestLapMs > 0 && b.bestLapMs > 0) return a.bestLapMs - b.bestLapMs;
+          return (a.position || 999) - (b.position || 999);
+        });
+        visibleDrivers.forEach((d, idx) => {
+          d.position = idx + 1;
+        });
+      } else {
+        visibleDrivers.sort((a, b) => {
+          if (a.bestLapMs > 0 && b.bestLapMs > 0) {
+            if (a.bestLapMs !== b.bestLapMs) return a.bestLapMs - b.bestLapMs;
+          } else if (a.bestLapMs > 0) {
+            return -1;
+          } else if (b.bestLapMs > 0) {
+            return 1;
+          }
+          if (b.numLaps !== a.numLaps) return b.numLaps - a.numLaps;
+          const aOnline = a.isOnline && a.status !== 'gone' ? 0 : 1;
+          const bOnline = b.isOnline && b.status !== 'gone' ? 0 : 1;
+          if (aOnline !== bOnline) return aOnline - bOnline;
+          return (a.position || 999) - (b.position || 999);
+        });
+
+        const leaderBestMs = visibleDrivers[0]?.bestLapMs || 0;
+        const formatDelta = (deltaMs: number): string => {
+          if (deltaMs <= 0) return '+0.000';
+          return `+${(deltaMs / 1000).toFixed(3)}`;
+        };
+
+        visibleDrivers.forEach((d, idx) => {
+          d.position = idx + 1;
+          if (d.bestLapMs > 0 && leaderBestMs > 0) {
+            d.bestState = d.bestLapMs === leaderBestMs ? 'session' : '';
+            if (idx === 0) {
+              d.gap = '';
+              d.interval = '';
+            } else {
+              d.gap = formatDelta(d.bestLapMs - leaderBestMs);
+              const prevBestMs = visibleDrivers[idx - 1]?.bestLapMs || 0;
+              d.interval = prevBestMs > 0 ? formatDelta(d.bestLapMs - prevBestMs) : '';
+            }
+          } else {
+            d.bestState = '';
+            d.gap = '';
+            d.interval = '';
+          }
+        });
+      }
 
       this.storedTimesList = Array.from(storedMap.values()).sort((a, b) => {
         if (a.bestLapMs > 0 && b.bestLapMs > 0) return a.bestLapMs - b.bestLapMs;
