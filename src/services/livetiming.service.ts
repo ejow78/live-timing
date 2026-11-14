@@ -336,9 +336,11 @@ export class LiveTimingService {
   private listeners = new Set<StateListener>();
   private processedEventKeys = new Set<string>();
 
+  private lastPollSuccessMs = 0;
+
   private state: LiveTelemetryState = {
     connectedToWs: false,
-    realtimePosIntervalMs: 1000,
+    realtimePosIntervalMs: 250,
     serverName: 'LATAM SimRacing Alliance',
     championshipName: '',
     trackId: '',
@@ -389,7 +391,7 @@ export class LiveTimingService {
     void this.pollLiveJson();
     this.pollTimer = setInterval(() => {
       void this.pollLiveJson();
-    }, 1000);
+    }, 250);
   }
 
   public stop(): void {
@@ -585,6 +587,15 @@ export class LiveTimingService {
 
       const data = (await response.json()) as RawLiveJson;
       if (!data) return;
+
+      const pollNowMs = Date.now();
+      if (this.lastPollSuccessMs > 0) {
+        const elapsed = pollNowMs - this.lastPollSuccessMs;
+        // Suavizar intervalo real para que la interpolación en el mapa no se congele ni warpee
+        const clamped = Math.max(200, Math.min(1200, elapsed));
+        this.state.realtimePosIntervalMs = Math.round(this.state.realtimePosIntervalMs * 0.7 + clamped * 0.3);
+      }
+      this.lastPollSuccessMs = pollNowMs;
 
       this.state.connectedToWs = Boolean(data.online && data.running);
 
