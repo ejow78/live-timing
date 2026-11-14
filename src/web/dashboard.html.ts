@@ -60,7 +60,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       --display: "Chakra Petch", "Arial Narrow", Arial, sans-serif;
       --body: "Saira", "Segoe UI", Roboto, Arial, sans-serif;
       --cut: 16px;
-      --car-trans: 0.26s;
+      --car-trans: 0.52s;
     }
 
     body {
@@ -833,9 +833,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         heroBg.style.backgroundImage = 'url("' + state.previewImageUrl + '")';
       }
 
-      // Sincronizar velocidad de transición del radar con el intervalo real del servidor (+5% overlap para evitar pausas entre ticks)
+      // Sincronizar velocidad de transición del radar con el intervalo real de cambio de posición (+12% overlap)
       if (state.realtimePosIntervalMs && state.realtimePosIntervalMs >= 50) {
-        const transSec = Math.max(0.18, Math.min(1.25, (state.realtimePosIntervalMs * 1.05) / 1000)).toFixed(3);
+        const transSec = Math.max(0.22, Math.min(1.5, (state.realtimePosIntervalMs * 1.12) / 1000)).toFixed(3);
         document.documentElement.style.setProperty('--car-trans', transSec + 's');
       }
 
@@ -991,7 +991,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             markerEl.style.top = pctY.toFixed(3) + '%';
             void markerEl.offsetHeight; // forzar reflow
             markerEl.style.transition = '';
-          } else {
+          } else if (pctX !== prevX || pctY !== prevY) {
             markerEl.style.left = pctX.toFixed(3) + '%';
             markerEl.style.top = pctY.toFixed(3) + '%';
           }

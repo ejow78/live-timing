@@ -336,11 +336,12 @@ export class LiveTimingService {
   private listeners = new Set<StateListener>();
   private processedEventKeys = new Set<string>();
 
-  private lastPollSuccessMs = 0;
+  private lastPosChangeMs = 0;
+  private lastPositionsSignature = '';
 
   private state: LiveTelemetryState = {
     connectedToWs: false,
-    realtimePosIntervalMs: 250,
+    realtimePosIntervalMs: 500,
     serverName: 'LATAM SimRacing Alliance',
     championshipName: '',
     trackId: '',
@@ -588,14 +589,21 @@ export class LiveTimingService {
       const data = (await response.json()) as RawLiveJson;
       if (!data) return;
 
-      const pollNowMs = Date.now();
-      if (this.lastPollSuccessMs > 0) {
-        const elapsed = pollNowMs - this.lastPollSuccessMs;
-        // Suavizar intervalo real para que la interpolación en el mapa no se congele ni warpee
-        const clamped = Math.max(200, Math.min(1200, elapsed));
-        this.state.realtimePosIntervalMs = Math.round(this.state.realtimePosIntervalMs * 0.7 + clamped * 0.3);
+      // Medir el intervalo REAL entre cambios de posición en live.json (no el del polling HTTP)
+      const posSig = (Array.isArray(data.players) ? data.players : [])
+        .filter((p) => p.onMap)
+        .map((p) => `${p.name}:${p.x},${p.y}`)
+        .join('|');
+      if (posSig && posSig !== this.lastPositionsSignature) {
+        const nowPosMs = Date.now();
+        if (this.lastPosChangeMs > 0) {
+          const elapsed = nowPosMs - this.lastPosChangeMs;
+          const clamped = Math.max(200, Math.min(1500, elapsed));
+          this.state.realtimePosIntervalMs = Math.round(this.state.realtimePosIntervalMs * 0.7 + clamped * 0.3);
+        }
+        this.lastPosChangeMs = nowPosMs;
+        this.lastPositionsSignature = posSig;
       }
-      this.lastPollSuccessMs = pollNowMs;
 
       this.state.connectedToWs = Boolean(data.online && data.running);
 
