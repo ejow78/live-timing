@@ -7,10 +7,10 @@ npm install
 Crea tu archivo `.env` basándote en `.env.example`:
 ```ini
 EMPEROR_IP_OR_DOMAIN=216.238.100.32
-EMPEROR_HTTP_PORT=9649
+EMPEROR_HTTP_PORT=xxxx
 AC_SERVER_PASSWORD=TuPassword
-EMPEROR_WEB_URL=https://aclsa.emperorservers.com
-WEB_PORT=3000
+EMPEROR_WEB_URL=https://xxx.emperorservers.com
+WEB_PORT=x000
 ADMIN_PASSWORD=TuPasswordAdmin
 MOCK_MODE=false
 ```
