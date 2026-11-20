@@ -4,7 +4,7 @@ npm install
 ```
 
 ### 2. Configurar variables de entorno
-Crea tu archivo `.env` basándote en `.env.example`:
+Crea tu archivo `.env` basándote en:
 ```ini
 EMPEROR_IP_OR_DOMAIN=216.238.100.32
 EMPEROR_HTTP_PORT=xxxx
